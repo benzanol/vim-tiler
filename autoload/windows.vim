@@ -17,7 +17,7 @@ endfunction
 " }}}
 " FUNCTION: s:InitializeMappings() {{{1
 function! s:InitializeMappings()
-	nnoremap <C-c> :call windows#Close()<CR>
+	nnoremap <C-c> :call windows#Close(["current"])<CR>
 	nnoremap <C-w>r :call windows#Render()<CR>
 
 	nnoremap <A-k> :call windows#Move("v", 0)<CR>
@@ -60,7 +60,7 @@ function! windows#Render()
 
 	" Create a list of all windows to be resized at the end
 	let g:window_list = []
-	
+
 	" Load the pane itself
 	call g:LoadPane(g:windows)
 
@@ -68,7 +68,7 @@ function! windows#Render()
 	for q in g:window_list " For each level of window
 		for r in q " For each individual window
 			call win_gotoid(r.winid)
-			exec "vertical resize " . string(1.0 * r.size[0] * winwidth)
+			exec "vertical resize " . string(1.0 * r.size[0] * &columns * winwidth)
 			" Subtract 1 because of statusline
 			exec "resize " . string(1.0 * r.size[1] * &lines - 1.0)
 		endfor
@@ -91,9 +91,13 @@ function! windows#Split(direction, after)
 	call win_gotoid(g:GetPane(g:GetId("num", num)).window)
 endfunction
 " }}}
-" FUNCTION: windows#Close() {{{1
-function! windows#Close()
-	let remove_id = g:GetId("window", win_getid())
+" FUNCTION: windows#Close(id) {{{1
+function! windows#Close(id)
+	let remove_id = a:id
+	if a:id == ["current"]
+		let remove_id = g:GetId("window", win_getid())
+	endif
+
 	let parent = g:GetPane(remove_id[0:-2])
 	let remove_index = remove_id[-1]
 
@@ -106,6 +110,21 @@ function! windows#Close()
 		let replacement.size = parent.size
 		call g:ReplacePane(replacement, parent.id)
 		let new_pane = replacement
+
+		let g:windows = g:GenerateIds(g:windows, [0])
+
+		" If the dissolved split now has the same layout as its parent
+		let new_parent = g:GetPane(remove_id[0:-2])
+		if len(remove_id) >= 3 && new_parent.layout == g:GetPane(remove_id[0:-3]).layout
+			let super_parent = g:GetPane(remove_id[0:-3])
+			call g:ReplacePane(new_parent.children[0], new_parent.id)
+
+			let g:windows = g:GenerateIds(g:windows, [0])
+
+			for i in range(1, len(new_parent.children) - 1)
+				call g:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
+			endfor
+		endif
 
 	else " If the remaining windows' sizes need to be updated to fill the empty space
 		let ratio = 1.0 * (len(parent.children) + 1.0) / len(parent.children)
@@ -269,7 +288,7 @@ function! g:LoadPane(pane)
 	endif
 endfunction
 " }}}
-" FUNCTION: g:AddPane(new_pane, location_id, direction) {{{1
+" FUNCTION: g:AddPane(new_pane, location_id, direction, after) {{{1
 function! g:AddPane(new_pane, location_id, direction, after)
 	let location_pane = g:GetPane(a:location_id)
 
