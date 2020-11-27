@@ -40,14 +40,13 @@ endfunction
 " FUNCTION: windows#Render() {{{1
 function! windows#Render()
 	" Generate the recursive variables
-	let g:windows.actual_size = [1, 1]
 	let g:windows.size = 1
 	let g:windows = g:GenerateIds(g:windows, [0])
 	let winwidth = 1.0
 
 	" Remove other splits and save the cursor location for later
 	wincmd o
-	let current_window = win_getid()
+	let current_window = g:GetPane(g:GetId("window", win_getid()))
 	norm! mz
 
 	" Create a sidebar
@@ -62,7 +61,7 @@ function! windows#Render()
 	let g:window_list = []
 
 	" Load the pane itself
-	call g:LoadPane(g:windows)
+	call g:LoadPane(g:windows, [1, 1])
 
 	" Set the sizes of all of the windows in the window list
 	for q in g:window_list " For each level of window
@@ -75,7 +74,10 @@ function! windows#Render()
 	endfor
 
 	" Return to the origional window
-	call win_gotoid(current_window)
+	if current_window != {}
+		echo current_window
+		call win_gotoid(current_window.window)
+	endif
 	norm! `z
 endfunction
 " }}}
@@ -218,8 +220,10 @@ endfunction
 
 " FUNCTION: g:GetPane(id) {{{1
 function! g:GetPane(id)
-	if len(a:id) <= 1
+	if a:id == [0]
 		return g:windows
+	elseif len(a:id) <= 1
+		return {}
 	endif
 
 	let pane = g:windows
@@ -250,22 +254,20 @@ function! g:GetId(datapoint, value)
 
 		call remove(checkpanes, 0)
 	endwhile
+	return []
 endfunction
 " }}}
-" FUNCTION: g:LoadPane(pane) {{{1
-function! g:LoadPane(pane)
-
-	" Things to do for every pane
-
+" FUNCTION: g:LoadPane(pane, size) {{{1
+function! g:LoadPane(pane, size)
 	" Open a window
 	if a:pane["layout"] == "w"
 		exec "buffer " . a:pane.buffer
 
-		" Add the current window to the window list
+		" Add the current window to the list of windows to be resized later
 		while len(g:window_list) < len(a:pane.id)
 			call add(g:window_list, [])
 		endwhile
-		call add(g:window_list[len(a:pane.id) - 1], {"winid":(a:pane.window), "size":(a:pane.actual_size)})
+		call add(g:window_list[len(a:pane.id) - 1], {"winid":(a:pane.window), "size":(a:size)})
 
 	else
 		" Set up the splits
@@ -275,11 +277,17 @@ function! g:LoadPane(pane)
 			exec split_cmd
 			let a:pane.children[i].window = win_getid()
 		endfor
-
+		
 		" Return to each split and set it up
 		for i in range(len(a:pane.children))
+			" Figure out the new size
+			let size_index = a:pane.layout == "h" ? 0 : 1
+			let new_size = a:size[0:1]
+			let new_size[size_index] = 1.0 * a:size[size_index] * a:pane.children[i].size
+
+			" Go to the window and load it
 			call win_gotoid(a:pane.children[i].window)
-			call g:LoadPane(a:pane.children[i])
+			call g:LoadPane(a:pane.children[i], new_size)
 		endfor
 
 		if has_key(a:pane, "window")
@@ -339,7 +347,6 @@ function! g:AddPane(new_pane, location_id, direction, after)
 	else
 		let new_parent = {"layout":a:direction, "id":a:location_id}
 		let new_parent.size = location_pane.size
-		let new_parent.actual_size = [location_pane.actual_size[0], location_pane.actual_size[1]]
 		let new_parent.children = a:after ? [location_pane, a:new_pane] : [a:new_pane, location_pane]
 
 		call g:ReplacePane(new_parent, a:location_id)
@@ -379,23 +386,17 @@ endfunction
 " }}}
 " FUNCTION: g:GenerateIds(pane, id) {{{1
 function g:GenerateIds(pane, id)
-
 	let a:pane.id = a:id
 
 	if !has_key(a:pane, "children")
 		return a:pane
 	endif
 
-	let size_index = a:pane.layout == "h" ? 0 : 1
 	let children = a:pane.children
 	for i in range(len(children))
 		let new_id = a:id + [i]
 
-		let children[i].actual_size = ["",""]
-		let children[i].actual_size[!size_index] = a:pane.actual_size[!size_index]
-		let children[i].actual_size[size_index] = a:pane.actual_size[size_index] * children[i].size
 		let children[i] = g:GenerateIds(children[i], new_id)
-		"let in = input(string(a:pane.id) . string(children[i].id) . string(children[i].actual_size))
 	endfor
 	return a:pane
 endfunction
