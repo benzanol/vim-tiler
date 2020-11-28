@@ -1,7 +1,10 @@
+" ==============================================================================
+" Initialization functions
+" ==============================================================================
 " FUNCTION: windows#Enable() {{{1
 function! windows#Enable()
-	let g:windows = {"num":0,"id":[0], "layout":"w", "buffer":1, "size":1, "actual_size":[1,1]}
-	let g:current_pane = g:windows " The current pane not including the sidebar
+	let g:layout = {"num":0,"id":[0], "layout":"w", "buffer":1, "size":1, "actual_size":[1,1]}
+	let g:current_pane = g:layout " The current pane not including the sidebar
 	let g:max_num = 1
 
 	let g:sidebar = {"open":0, "focused":0, "size":0.2, "side":"left", "buffers":[], "window":"", "command":"vsplit"}
@@ -39,6 +42,9 @@ function! s:InitializeMappings()
 endfunction
 " }}}
 
+" ==============================================================================
+" User level functions
+" ==============================================================================
 " FUNCTION: windows#Render() {{{1
 function! windows#Render()
 	" Disable autocommands
@@ -46,8 +52,8 @@ function! windows#Render()
 	autocmd! BufEnter
 
 	" Generate the recursive variables
-	let g:windows.size = 1
-	let g:windows = g:GenerateIds(g:windows, [0])
+	let g:layout.size = 1
+	let g:layout = g:GenerateIds(g:layout, [0])
 	let winwidth = 1.0
 
 	" Remove other splits
@@ -78,7 +84,7 @@ function! windows#Render()
 	let g:window_list = []
 
 	" Load the layout of the splits
-	call g:LoadPane(g:windows, [1, 1])
+	call g:LoadPane(g:layout, [1, 1])
 
 	" Resize the sidebar if it is open
 	if g:sidebar.open
@@ -120,35 +126,6 @@ function! windows#Render()
 	autocmd BufEnter * call windows#NewBufferEvent()
 endfunction
 " }}}
-" FUNCTION: windows#ToggleSidebarOpen() {{{1
-function! windows#ToggleSidebarOpen()
-	if g:sidebar.open " Disable the sidebar if it is already active
-		let g:sidebar.open = 0
-		let g:sidebar.focused = 0
-	else " Enable the sidebar if it is not already active
-		let g:sidebar.open = 1
-		let g:sidebar.focused = 1 
-	endif
-
-	call windows#Render()
-endfunction
-" }}}
-" FUNCTION: windows#ToggleSidebarFocus() {{{1
-function! windows#ToggleSidebarFocus()
-	if !g:sidebar.open
-		call windows#ToggleSidebarOpen()
-
-	elseif g:sidebar.focused
-		let g:sidebar.focused = 0
-
-	else
-		let g:sidebar.focused = 1
-	endif
-
-	echo g:sidebar.focused
-	call windows#Render()
-endfunction
-" }}}
 " FUNCTION: windows#Split(direction, after) {{{1
 function! windows#Split(direction, after)
 	let current_id = g:GetPane("window", win_getid()).id
@@ -161,61 +138,10 @@ function! windows#Split(direction, after)
 	call win_gotoid(g:GetPane("num", num).window)
 endfunction
 " }}}
-" FUNCTION: windows#Close(id) {{{1
-function! windows#Close(id)
-	let remove_id = a:id
-	if a:id == ["current"]
-		let remove_id = g:GetPane("window", win_getid()).id
-	endif
-
-	let parent = g:GetPane("id", remove_id[0:-2])
-	let remove_index = remove_id[-1]
-
-	call remove(parent.children, remove_index)
-
-	" If the parent contains a single other window, and should be dissolved
-	if len(parent.children) == 1
-		let replacement = parent.children[0]
-		let replacement.id = parent.id
-		let replacement.size = parent.size
-		call g:ReplacePane(replacement, parent.id)
-		let new_pane = replacement
-
-		let g:windows = g:GenerateIds(g:windows, [0])
-
-		" If the dissolved split now has the same layout as its parent
-		let new_parent = g:GetPane("id", remove_id[0:-2])
-		if len(remove_id) >= 3 && new_parent.layout == g:GetPane("id", remove_id[0:-3]).layout
-			let super_parent = g:GetPane("id", remove_id[0:-3])
-			call g:ReplacePane(new_parent.children[0], new_parent.id)
-
-			let g:windows = g:GenerateIds(g:windows, [0])
-
-			for i in range(1, len(new_parent.children) - 1)
-				call g:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
-			endfor
-		endif
-
-	else " If the remaining windows' sizes need to be updated to fill the empty space
-		let ratio = 1.0 * (len(parent.children) + 1.0) / len(parent.children)
-		for q in parent.children
-			let q.size = 1.0 * q.size * ratio
-		endfor
-		if len(parent.children) <= remove_index
-			let new_pane = parent.children[-1]
-		else
-			let new_pane = parent.children[remove_index]
-		endif
-	endif
-
-	call windows#Render()
-
-	let new_window_id = new_pane.id[0:-1]
-	while has_key(g:GetPane("id", new_window_id), "children")
-		call add(new_window_id, len(g:GetPane("id", new_window_id).children) - 1)
-	endwhile
-
-	call win_gotoid(g:GetPane("id", new_window_id).window)
+" FUNCTION: windows#Close() {{{1
+function! windows#Close()
+	let remove_id = g:GetPane("window", win_getid()).id
+	call g:RemovePane(remove_id)
 endfunction
 " }}}
 " FUNCTION: windows#Move(direction, value) {{{1
@@ -285,35 +211,49 @@ function! windows#Resize(direction, amount)
 	call windows#Render()
 endfunction
 " }}}
-" FUNCTION: windows#WindowMoveEvent() {{{1
-function! windows#WindowMoveEvent()
-	if win_getid() == g:sidebar.window
+" FUNCTION: windows#ToggleSidebarOpen() {{{1
+function! windows#ToggleSidebarOpen()
+	if g:sidebar.open " Disable the sidebar if it is already active
+		let g:sidebar.open = 0
+		let g:sidebar.focused = 0
+	else " Enable the sidebar if it is not already active
+		let g:sidebar.open = 1
+		let g:sidebar.focused = 1 
+	endif
+
+	call windows#Render()
+endfunction
+" }}}
+" FUNCTION: windows#ToggleSidebarFocus() {{{1
+function! windows#ToggleSidebarFocus()
+	if !g:sidebar.open
+		call windows#ToggleSidebarOpen()
+
+	elseif g:sidebar.focused
+		let g:sidebar.focused = 0
+
+	else
 		let g:sidebar.focused = 1
-	elseif g:GetPane("window", win_getid()) != {}
-		let g:sidebar.focused = 0 
-		let g:current_pane = g:GetPane("window", win_getid())
-	endif
-endfunction
-" }}}
-" FUNCTION: windows#NewBufferEvent() {{{1
-function! windows#NewBufferEvent()
-	if !g:sidebar.focused && g:current_pane.window == win_getid()
-		let g:current_pane.buffer = bufnr()
 	endif
 
+	echo g:sidebar.focused
+	call windows#Render()
 endfunction
 " }}}
 
+" ==============================================================================
+" Background functions
+" ==============================================================================
 " FUNCTION: g:GetPane(datapoint, value) {{{1
 function! g:GetPane(datapoint, value)
 	if a:datapoint == "id"
 		if a:value == [0]
-			return g:windows
+			return g:layout
 		elseif len(a:value) <= 1
 			return {}
 		endif
 
-		let pane = g:windows
+		let pane = g:layout
 		for i in range(1, len(a:value) - 1)
 			let id_char = a:value[i]
 			if !has_key(pane, "children") || len(pane.children) <= id_char
@@ -326,7 +266,7 @@ function! g:GetPane(datapoint, value)
 		return pane
 
 	else
-		let checkpanes = [g:windows]
+		let checkpanes = [g:layout]
 
 		while len(checkpanes) > 0
 			if has_key(checkpanes[0], a:datapoint) && checkpanes[0][a:datapoint] == a:value
@@ -389,6 +329,23 @@ function! g:LoadPane(pane, size)
 			call remove(a:pane, "window")
 		endif
 	endif
+endfunction
+" }}}
+" FUNCTION: g:GenerateIds(pane, id) {{{1
+function g:GenerateIds(pane, id)
+	let a:pane.id = a:id
+
+	if !has_key(a:pane, "children")
+		return a:pane
+	endif
+
+	let children = a:pane.children
+	for i in range(len(children))
+		let new_id = a:id + [i]
+
+		let children[i] = g:GenerateIds(children[i], new_id)
+	endfor
+	return a:pane
 endfunction
 " }}}
 " FUNCTION: g:AddPane(new_pane, location_id, direction, after) {{{1
@@ -456,14 +413,66 @@ function! g:AddPane(new_pane, location_id, direction, after)
 		let g:max_num += 1
 	endif
 
-	let g:windows = g:GenerateIds(g:windows, [0])
+	let g:layout = g:GenerateIds(g:layout, [0])
 	return a:new_pane.num
+endfunction
+" }}}
+" FUNCTION: g:RemovePane(id) {{{1
+function! g:RemovePane(id)
+	let parent = g:GetPane("id", a:id[0:-2])
+	let remove_index = a:id[-1]
+
+	call remove(parent.children, remove_index)
+
+	" If the parent contains a single other window, and should be dissolved
+	if len(parent.children) == 1
+		let replacement = parent.children[0]
+		let replacement.id = parent.id
+		let replacement.size = parent.size
+		call g:ReplacePane(replacement, parent.id)
+		let new_pane = replacement
+
+		let g:layout = g:GenerateIds(g:layout, [0])
+
+		" If the dissolved split now has the same layout as its parent
+		let new_parent = g:GetPane("id", a:id[0:-2])
+		if len(a:id) >= 3 && new_parent.layout == g:GetPane("id", a:id[0:-3]).layout
+			let super_parent = g:GetPane("id", a:id[0:-3])
+			call g:ReplacePane(new_parent.children[0], new_parent.id)
+
+			let g:layout = g:GenerateIds(g:layout, [0])
+
+			for i in range(1, len(new_parent.children) - 1)
+				call g:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
+			endfor
+		endif
+
+	else " If the remaining windows' sizes need to be updated to fill the empty space
+		let ratio = 1.0 * (len(parent.children) + 1.0) / len(parent.children)
+		for q in parent.children
+			let q.size = 1.0 * q.size * ratio
+		endfor
+		if len(parent.children) <= remove_index
+			let new_pane = parent.children[-1]
+		else
+			let new_pane = parent.children[remove_index]
+		endif
+	endif
+
+	call windows#Render()
+
+	let new_window_id = new_pane.id[0:-1]
+	while has_key(g:GetPane("id", new_window_id), "children")
+		call add(new_window_id, len(g:GetPane("id", new_window_id).children) - 1)
+	endwhile
+
+	call win_gotoid(g:GetPane("id", new_window_id).window)
 endfunction
 " }}}
 " FUNCTION: g:ReplacePane(new_pane, location_id) {{{1
 function! g:ReplacePane(new_pane, location_id)
 	if a:location_id == [0]
-		let g:windows = a:new_pane
+		let g:layout = a:new_pane
 		return
 	endif
 
@@ -480,20 +489,25 @@ function! g:ReplacePane(new_pane, location_id)
 	endif
 endfunction
 " }}}
-" FUNCTION: g:GenerateIds(pane, id) {{{1
-function g:GenerateIds(pane, id)
-	let a:pane.id = a:id
 
-	if !has_key(a:pane, "children")
-		return a:pane
+" ==============================================================================
+" Autocmd functions
+" ==============================================================================
+" FUNCTION: windows#WindowMoveEvent() {{{1
+function! windows#WindowMoveEvent()
+	if win_getid() == g:sidebar.window
+		let g:sidebar.focused = 1
+	elseif g:GetPane("window", win_getid()) != {}
+		let g:sidebar.focused = 0 
+		let g:current_pane = g:GetPane("window", win_getid())
+	endif
+endfunction
+" }}}
+" FUNCTION: windows#NewBufferEvent() {{{1
+function! windows#NewBufferEvent()
+	if !g:sidebar.focused && g:current_pane.window == win_getid()
+		let g:current_pane.buffer = bufnr()
 	endif
 
-	let children = a:pane.children
-	for i in range(len(children))
-		let new_id = a:id + [i]
-
-		let children[i] = g:GenerateIds(children[i], new_id)
-	endfor
-	return a:pane
 endfunction
 " }}}
