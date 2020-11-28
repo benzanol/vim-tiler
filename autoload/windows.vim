@@ -10,7 +10,8 @@ function! windows#Enable()
 	call s:InitializeMappings()
 
 	autocmd VimResized * call windows#Render()
-	autocmd WinEnter * call windows#WindowMove()
+	autocmd WinEnter * call windows#WindowMoveEvent()
+	autocmd BufEnter * call windows#NewBufferEvent()
 
 	call windows#Render()
 endfunction
@@ -41,6 +42,10 @@ endfunction
 
 " FUNCTION: windows#Render() {{{1
 function! windows#Render()
+	" Disable autocommands
+	autocmd! WinEnter
+	autocmd! BufEnter
+
 	" Generate the recursive variables
 	let g:windows.size = 1
 	let g:windows = g:GenerateIds(g:windows, [0])
@@ -49,16 +54,17 @@ function! windows#Render()
 	" Remove other splits
 	wincmd o
 
-	" Set temporary variables
-	let temp_sidebar_focused = g:sidebar.focused
-	let temp_nonsidebar_pane = g:nonsidebar_pane
-
 	" Create a sidebar
 	if g:sidebar.open
 		" Create a window on the left with the correct width
 		vnew
 		exec "wincmd " . (g:sidebar.side == "right" ? "L" : "H")
 		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
+
+		" Open the correct file
+		if exists(g:sidebar.buffer)
+			exec string(g:sidebar.buffer) . "buffer!"
+		endif
 
 		" Set the related variables
 		let g:sidebar.window = win_getid()
@@ -84,16 +90,22 @@ function! windows#Render()
 		endfor
 	endfor
 
-	" Set global variables to their temp variables
-	let g:nonsidebar_pane = temp_nonsidebar_pane
-	let g:sidebar.focused = temp_sidebar_focused
+	" Resize the sidebar if it is open
+	if g:sidebar.open
+		call win_gotoid(g:sidebar.window)
+		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
+	endif
 
 	" Return to the origional window
-	if temp_sidebar_focused
+	if g:sidebar.focused
 		call win_gotoid(g:sidebar.window)
 	else
-		call win_gotoid(temp_nonsidebar_pane.window)
+		call win_gotoid(g:nonsidebar_pane.window)
 	endif
+
+	" Reenable autocommands
+	autocmd WinEnter * call windows#WindowMoveEvent()
+	autocmd BufEnter * call windows#NewBufferEvent()
 endfunction
 " }}}
 " FUNCTION: windows#ToggleSidebarOpen() {{{1
@@ -261,14 +273,42 @@ function! windows#Resize(direction, amount)
 	call windows#Render()
 endfunction
 " }}}
-" FUNCTION: windows#WindowMove() {{{1
-function! windows#WindowMove()
+" FUNCTION: windows#WindowMoveEvent() {{{1
+function! windows#WindowMoveEvent()
 	if win_getid() == g:sidebar.window 
 		let g:sidebar.focused = 1 
 	else 
 		let g:sidebar.focused = 0 
 		let g:nonsidebar_pane = g:GetPane("window", win_getid())
 	endif
+endfunction
+" }}}
+" FUNCTION: windows#NewBufferEvent() {{{1
+function! windows#NewBufferEvent()
+	let buffer_name = @%
+	let buffer_number = bufnr()
+
+	let sidebar = 0
+	for q in g:sidebar_buffers
+		if buffer_name == q
+			let g:sidebar.buffer = bufnr()
+			let g:sidebar.open = 1
+			let g:sidebar.focused = 1
+
+			let sidebar = 1
+		endif
+	endfor
+
+	if !sidebar
+		if g:sidebar.focused
+			call windows#ToggleSidebarFocus()
+		endif
+
+		let current_pane = g:GetPane("window", win_getid())
+		let current_pane.buffer = buffer_number
+	endif
+
+	call windows#Render()
 endfunction
 " }}}
 
