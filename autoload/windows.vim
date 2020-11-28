@@ -1,11 +1,10 @@
 " FUNCTION: windows#Enable() {{{1
 function! windows#Enable()
 	let g:windows = {"num":0,"id":[0], "layout":"w", "buffer":1, "size":1, "actual_size":[1,1]}
-	let g:nonsidebar_pane = g:windows " The current pane not including the sidebar
+	let g:current_pane = g:windows " The current pane not including the sidebar
 	let g:max_num = 1
 
-	let g:sidebar = {"open":0, "focused":0, "size":0.2, "side":"left", "buffers":[], "window":""}
-	let g:sidebar_buffers = []
+	let g:sidebar = {"open":0, "focused":0, "size":0.2, "side":"left", "buffers":[], "window":"", "command":"vsplit"}
 
 	call s:InitializeMappings()
 
@@ -56,18 +55,19 @@ function! windows#Render()
 
 	" Create a sidebar
 	if g:sidebar.open
+		" Delete the previous sidebar buffer, if there is one
+		if exists("g:sidebar.buffer")
+			exec string(g:sidebar.buffer) . "bdelete!"
+		endif
+
 		" Create a window on the left with the correct width
-		vnew
+		exec g:sidebar.command
 		exec "wincmd " . (g:sidebar.side == "right" ? "L" : "H")
 		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
 
-		" Open the correct file
-		if exists(g:sidebar.buffer)
-			exec string(g:sidebar.buffer) . "buffer!"
-		endif
-
 		" Set the related variables
 		let g:sidebar.window = win_getid()
+		let g:sidebar.buffer = bufnr()
 		let winwidth = 1.0 - g:sidebar.size
 
 		" Return to the main pane
@@ -80,6 +80,12 @@ function! windows#Render()
 	" Load the layout of the splits
 	call g:LoadPane(g:windows, [1, 1])
 
+	" Resize the sidebar if it is open
+	if g:sidebar.open
+		call win_gotoid(g:sidebar.window)
+		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
+	endif
+
 	" Set the sizes of all of the windows in the window list
 	for q in g:window_list " For each level of window
 		for r in q " For each individual window
@@ -87,20 +93,26 @@ function! windows#Render()
 			exec "vertical resize " . string(1.0 * r.size[0] * &columns * winwidth)
 			" Subtract 1 because of statusline of each window
 			exec "resize " . string(1.0 * r.size[1] * &lines - 1.0)
+			setlocal winfixheight
+			setlocal winfixwidth
 		endfor
 	endfor
 
-	" Resize the sidebar if it is open
+	" Resize the sidebar again
 	if g:sidebar.open
 		call win_gotoid(g:sidebar.window)
 		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
 	endif
 
+	"echo "rendering to " . string(g:current_pane)
+	"echo "called by " . string(expand("<sfile>"))
+	"call win_gotoid(g:current_pane.window)
+
 	" Return to the origional window
 	if g:sidebar.focused
 		call win_gotoid(g:sidebar.window)
 	else
-		call win_gotoid(g:nonsidebar_pane.window)
+		call win_gotoid(g:current_pane.window)
 	endif
 
 	" Reenable autocommands
@@ -140,7 +152,7 @@ endfunction
 " FUNCTION: windows#Split(direction, after) {{{1
 function! windows#Split(direction, after)
 	let current_id = g:GetPane("window", win_getid()).id
-	let new_pane = {"layout":"w", "buffer":2}
+	let new_pane = {"layout":"w"}
 
 	let num = g:AddPane(new_pane, current_id, a:direction, a:after)
 	call windows#Render()
@@ -275,40 +287,20 @@ endfunction
 " }}}
 " FUNCTION: windows#WindowMoveEvent() {{{1
 function! windows#WindowMoveEvent()
-	if win_getid() == g:sidebar.window 
-		let g:sidebar.focused = 1 
-	else 
+	if win_getid() == g:sidebar.window
+		let g:sidebar.focused = 1
+	elseif g:GetPane("window", win_getid()) != {}
 		let g:sidebar.focused = 0 
-		let g:nonsidebar_pane = g:GetPane("window", win_getid())
+		let g:current_pane = g:GetPane("window", win_getid())
 	endif
 endfunction
 " }}}
 " FUNCTION: windows#NewBufferEvent() {{{1
 function! windows#NewBufferEvent()
-	let buffer_name = @%
-	let buffer_number = bufnr()
-
-	let sidebar = 0
-	for q in g:sidebar_buffers
-		if buffer_name == q
-			let g:sidebar.buffer = bufnr()
-			let g:sidebar.open = 1
-			let g:sidebar.focused = 1
-
-			let sidebar = 1
-		endif
-	endfor
-
-	if !sidebar
-		if g:sidebar.focused
-			call windows#ToggleSidebarFocus()
-		endif
-
-		let current_pane = g:GetPane("window", win_getid())
-		let current_pane.buffer = buffer_number
+	if !g:sidebar.focused && g:current_pane.window == win_getid()
+		let g:current_pane.buffer = bufnr()
 	endif
 
-	call windows#Render()
 endfunction
 " }}}
 
@@ -354,10 +346,14 @@ endfunction
 " }}}
 " FUNCTION: g:LoadPane(pane, size) {{{1
 function! g:LoadPane(pane, size)
+	let a:pane.actual_size = a:size
+
 	" Open a window
 	if a:pane["layout"] == "w"
-		" Open the correct buffer in the window
-		exec "buffer " . a:pane.buffer
+		" Open the correct buffer in the window if the buffer exists
+		if exists("a:pane.buffer") && index(range(1, bufnr("$")), a:pane.buffer) != -1
+			exec "buffer " . a:pane.buffer
+		endif
 
 		" Give the pane a window number if it doesn't have one already
 		let a:pane.window = win_getid()
