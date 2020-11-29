@@ -128,7 +128,7 @@ function! windows#Render()
 			endif
 		endif
 
-		" Move the sidebar windows into a column, and set settings
+		" Move the sidebar windows into a column and set settings
 		for i in range(len(g:wm_sidebar.windows))
 			call win_gotoid(g:wm_sidebar.windows[i])
 			wincmd J
@@ -144,17 +144,18 @@ function! windows#Render()
 			endif
 		endfor
 
+		" Move the origional window to the right
+		call win_gotoid(windows_window)
+		wincmd L
+
 		" Figure out the size and resize the sidebar
+		call win_gotoid(g:wm_sidebar.windows[0])
 		if g:wm_sidebar.size > 1
 			let sidebar_size = g:wm_sidebar.size
 		else
 			let sidebar_size = &columns * g:wm_sidebar.size
 		endif
 		exec "vertical resize " . string(sidebar_size)
-
-		" Move the origional window to the right
-		call win_gotoid(windows_window)
-		wincmd L
 	endif
 
 	" Replace the origional window with a blank one
