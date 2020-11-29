@@ -3,11 +3,11 @@
 " ==============================================================================
 " FUNCTION: windows#Enable() {{{1
 function! windows#Enable()
-	let g:layout = {"num":0,"id":[0], "layout":"w", "buffer":1, "size":1, "actual_size":[1,1]}
-	let g:current_pane = g:layout " The current pane not including the sidebar
+	let g:wm_layout = {"num":0,"id":[0], "layout":"w", "buffer":1, "size":1, "actual_size":[1,1]}
+	let g:current_pane = g:wm_layout " The current pane not including the sidebar
 	let g:max_num = 1
 
-	let g:sidebar = {"open":0, "focused":0, "size":40, "side":"left", "buffers":[], "window":"", "command":"vsplit"}
+	let g:wm_sidebar = {"open":0, "focused":0, "size":40, "side":"left", "buffers":[], "window":"", "command":"vsplit"}
 
 	call s:InitializeMappings()
 
@@ -20,20 +20,20 @@ endfunction
 " }}}
 " FUNCTION: s:InitializeMappings() {{{1
 function! s:InitializeMappings()
-	nnoremap <C-c> :call windows#Close()<CR>
-	nnoremap <C-w>r :call windows#Render()<CR>
-	nnoremap <F6> :call windows#ToggleSidebarOpen()<CR>
-	nnoremap <F7> :call windows#ToggleSidebarFocus()<CR>
+	nnoremap <silent> <C-c> :call windows#Close()<CR>
+	nnoremap <silent> <C-w>r :call windows#Render()<CR>
+	nnoremap <silent> <F6> :call windows#ToggleSidebarOpen()<CR>
+	nnoremap <silent> <F7> :call windows#ToggleSidebarFocus()<CR>
 
-	nnoremap <A-k> :call windows#Move("v", 0)<CR>
-	nnoremap <A-j> :call windows#Move("v", 1)<CR>
-	nnoremap <A-h> :call windows#Move("h", 0)<CR>
-	nnoremap <A-l> :call windows#Move("h", 1)<CR>
+	nnoremap <silent> <A-k> :call windows#Move("v", 0)<CR>
+	nnoremap <silent> <A-j> :call windows#Move("v", 1)<CR>
+	nnoremap <silent> <A-h> :call windows#Move("h", 0)<CR>
+	nnoremap <silent> <A-l> :call windows#Move("h", 1)<CR>
 
-	nnoremap <A-K> :call windows#Split("v", 0)<CR>
-	nnoremap <A-J> :call windows#Split("v", 1)<CR>
-	nnoremap <A-H> :call windows#Split("h", 0)<CR>
-	nnoremap <A-L> :call windows#Split("h", 1)<CR>
+	nnoremap <silent> <A-K> :call windows#Split("v", 0)<CR>
+	nnoremap <silent> <A-J> :call windows#Split("v", 1)<CR>
+	nnoremap <silent> <A-H> :call windows#Split("h", 0)<CR>
+	nnoremap <silent> <A-L> :call windows#Split("h", 1)<CR>
 
 	noremap <nowait> <silent> = :call windows#Resize("h", 0.015)<CR>
 	noremap <nowait> <silent> - :call windows#Resize("h", -0.015)<CR>
@@ -50,43 +50,58 @@ function! windows#Render()
 	" Disable autocommands
 	autocmd! WinEnter
 	autocmd! BufEnter
+	autocmd! BufLeave
 
-	" Generate the recursive variables
-	let g:layout.size = 1
-	let g:layout = g:GenerateIds(g:layout, [0])
+	" Generate various variables
+	let g:wm_layout.size = 1
+	let g:wm_layout = g:GenerateIds(g:wm_layout, [0])
+
+	if exists("g:wm_sidebar_color")
+		exec "highlight WmSidebarColor ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
+		exec "highlight Normal ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
+	endif
+	if exists("g:wm_window_color")
+		exec "highlight WmWindowColor ctermbg=" . g:wm_window_color.cterm . " guibg=" . g:wm_window_color.gui
+	endif
+	if exists("g:wm_current_color")
+		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
+	endif
 
 	" Create a sidebar
-	if g:sidebar.open
-		let sidebar_width = (g:sidebar.size > 1) ? (g:sidebar.size) : (g:sidebar.size * &columns)
+	if g:wm_sidebar.open
+		let sidebar_width = (g:wm_sidebar.size > 1) ? (g:wm_sidebar.size) : (g:wm_sidebar.size * &columns)
 
-		call win_gotoid(g:sidebar.window)
-		if win_getid() == g:sidebar.window " If the sidebar is already open
-			wincmd o
-			vnew
-
-		else " If the sidebar needs to be created
-			exec g:sidebar.command
-			exec "wincmd " . (g:sidebar.side == "right" ? "L" : "H")
-			let g:sidebar.window = win_getid()
-			let g:sidebar.buffer = bufnr()
-			wincmd p
+		call win_gotoid(g:wm_sidebar.window)
+		if win_getid() != g:wm_sidebar.window " If the sidebar needs to be created
+			exec g:wm_sidebar.command
+			exec "wincmd " . (g:wm_sidebar.side == "right" ? "L" : "H")
+			let g:wm_sidebar.window = win_getid()
+			let g:wm_sidebar.buffer = bufnr()
 		endif
+
+		" Set the sidebar color
+		setlocal winhl=Normal:WmSidebarColor
+
+		" Remove all other buffers
+		wincmd o
+		vnew
 	else
 		new
 		wincmd o
-		
+
 		let sidebar_width = 0
+		setlocal winhl=
 	endif
 
 	" Create a list of all windows to be resized at the end
 	let g:window_list = []
 
 	" Load the layout of the splits
-	call g:LoadPane(g:layout, [1, 1])
+	call g:LoadPane(g:wm_layout, [1, 1])
 
 	" Resize the sidebar if it is open
-	if g:sidebar.open
-		call win_gotoid(g:sidebar.window)
+	if g:wm_sidebar.open
+		call win_gotoid(g:wm_sidebar.window)
 		exec "vertical resize " . string(sidebar_width)
 	endif
 
@@ -99,29 +114,40 @@ function! windows#Render()
 			exec "resize " . string(&lines * r.size[1])
 			setlocal winfixheight
 			setlocal winfixwidth
+
+			" Set it to the default window color
+			if exists("g:wm_window_color")
+				setlocal winhl=Normal:WmWindowColor
+			endif
 		endfor
 	endfor
 
 	" Resize the sidebar again
-	if g:sidebar.open
-		call win_gotoid(g:sidebar.window)
+	if g:wm_sidebar.open
+		call win_gotoid(g:wm_sidebar.window)
 		exec "vertical resize " . string(sidebar_width)
 	endif
 
-	"echo "rendering to " . string(g:current_pane)
-	"echo "called by " . string(expand("<sfile>"))
-	"call win_gotoid(g:current_pane.window)
-
 	" Return to the origional window
-	if g:sidebar.focused
-		call win_gotoid(g:sidebar.window)
+	if g:wm_sidebar.focused
+		call win_gotoid(g:wm_sidebar.window)
 	else
 		call win_gotoid(g:current_pane.window)
+
+		" Set the color of the current window if a special color is specified
+		if exists("g:wm_current_color")
+			setlocal winhl=Normal:WmCurrentColor
+		endif
 	endif
 
 	" Reenable autocommands
 	autocmd WinEnter * call windows#WindowMoveEvent()
 	autocmd BufEnter * call windows#NewBufferEvent()
+
+	if exists("g:wm_current_color")
+		autocmd BufEnter * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
+		autocmd BufLeave * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
+	endif
 endfunction
 " }}}
 " FUNCTION: windows#Split(direction, after) {{{1
@@ -129,56 +155,51 @@ function! windows#Split(direction, after)
 	let current_id = g:GetPane("window", win_getid()).id
 	let new_pane = {"layout":"w"}
 
-	let num = g:AddPane(new_pane, current_id, a:direction, a:after)
+	let g:current_pane = g:AddPane(new_pane, current_id, a:direction, a:after)
 	call windows#Render()
-
-	" Move cursor to the new pane
-	call win_gotoid(g:GetPane("num", num).window)
 endfunction
 " }}}
 " FUNCTION: windows#Close() {{{1
 function! windows#Close()
 	let remove_id = g:GetPane("window", win_getid()).id
-	call g:RemovePane(remove_id)
+	let g:current_pane = g:RemovePane(remove_id)
+	call windows#Render()
 endfunction
 " }}}
 " FUNCTION: windows#Move(direction, value) {{{1
 function! windows#Move(direction, value)
-	let g:pane = g:GetPane("window", win_getid())
-	let g:id = g:pane.id
-	let g:parent = g:GetPane("id", g:id[0:-2])
-	let g:parents_parent = g:GetPane("id", g:id[0:-3])
-
-	let g:opt = 0
+	let pane = g:GetPane("window", win_getid())
+	let id = pane.id
+	let parent = g:GetPane("id", id[0:-2])
+	let parents_parent = g:GetPane("id", id[0:-3])
 
 	" Move the pane out of its current parent
-	if g:parent.layout != a:direction
-		call windows#Close(["current"])
-		call g:AddPane(g:pane, g:id[0:-2], a:direction, a:value)
+	if parent.layout != a:direction
+		call g:RemovePane(pane.id)
+		call g:AddPane(pane, id[0:-2], a:direction, a:value)
 
 		" If the pane is on the end of its parent, move it out
-	elseif (g:id[-1] == 0 && a:value == 0) || (g:id[-1] == len(g:parent.children) - 1 && a:value == 1)
-		if g:parent.id == [0]
+	elseif (id[-1] == 0 && a:value == 0) || (id[-1] == len(parent.children) - 1 && a:value == 1)
+		if parent.id == [0]
 			return
 		endif
 
-		let g:opt = 6
 		call windows#Move(a:direction == "v" ? "h" : "v", 1)
 		call windows#Move(a:direction, a:value)
 
 		" If there are only 2 panes in the parent, swap their places
-	elseif len(g:parent.children) == 2
-		let g:parent.children = [g:parent.children[1], g:parent.children[0]]
+	elseif len(parent.children) == 2
+		let parent.children = [parent.children[1], parent.children[0]]
 
 		" Group the pane with the next pane in the parent
 	else
-		let location_pane = g:parent.children[g:id[-1] + (a:value ? 1 : -1)]
-		call windows#Close(["current"])
-		call g:AddPane(g:pane, location_pane.id, a:direction == "v" ? "h" : "v", 1)
+		let location_pane = parent.children[id[-1] + (a:value ? 1 : -1)]
+		call g:RemovePane(pane.id)
+		call g:AddPane(pane, location_pane.id, a:direction == "v" ? "h" : "v", 1)
 	endif
 
 	call windows#Render()
-	call win_gotoid(g:pane.window)
+	call win_gotoid(pane.window)
 endfunction
 " }}}
 " FUNCTION: windows#Resize(direction, amount) {{{1
@@ -211,12 +232,12 @@ endfunction
 " }}}
 " FUNCTION: windows#ToggleSidebarOpen() {{{1
 function! windows#ToggleSidebarOpen()
-	if g:sidebar.open " Disable the sidebar if it is already active
-		let g:sidebar.open = 0
-		let g:sidebar.focused = 0
+	if g:wm_sidebar.open " Disable the sidebar if it is already active
+		let g:wm_sidebar.open = 0
+		let g:wm_sidebar.focused = 0
 	else " Enable the sidebar if it is not already active
-		let g:sidebar.open = 1
-		let g:sidebar.focused = 1 
+		let g:wm_sidebar.open = 1
+		let g:wm_sidebar.focused = 1 
 	endif
 
 	call windows#Render()
@@ -224,17 +245,16 @@ endfunction
 " }}}
 " FUNCTION: windows#ToggleSidebarFocus() {{{1
 function! windows#ToggleSidebarFocus()
-	if !g:sidebar.open
+	if !g:wm_sidebar.open
 		call windows#ToggleSidebarOpen()
 
-	elseif g:sidebar.focused
-		let g:sidebar.focused = 0
+	elseif g:wm_sidebar.focused
+		let g:wm_sidebar.focused = 0
 
 	else
-		let g:sidebar.focused = 1
+		let g:wm_sidebar.focused = 1
 	endif
 
-	echo g:sidebar.focused
 	call windows#Render()
 endfunction
 " }}}
@@ -246,12 +266,12 @@ endfunction
 function! g:GetPane(datapoint, value)
 	if a:datapoint == "id"
 		if a:value == [0]
-			return g:layout
+			return g:wm_layout
 		elseif len(a:value) <= 1
 			return {}
 		endif
 
-		let pane = g:layout
+		let pane = g:wm_layout
 		for i in range(1, len(a:value) - 1)
 			let id_char = a:value[i]
 			if !has_key(pane, "children") || len(pane.children) <= id_char
@@ -264,7 +284,7 @@ function! g:GetPane(datapoint, value)
 		return pane
 
 	else
-		let checkpanes = [g:layout]
+		let checkpanes = [g:wm_layout]
 
 		while len(checkpanes) > 0
 			if has_key(checkpanes[0], a:datapoint) && checkpanes[0][a:datapoint] == a:value
@@ -411,8 +431,8 @@ function! g:AddPane(new_pane, location_id, direction, after)
 		let g:max_num += 1
 	endif
 
-	let g:layout = g:GenerateIds(g:layout, [0])
-	return a:new_pane.num
+	let g:wm_layout = g:GenerateIds(g:wm_layout, [0])
+	return a:new_pane
 endfunction
 " }}}
 " FUNCTION: g:RemovePane(id) {{{1
@@ -430,7 +450,7 @@ function! g:RemovePane(id)
 		call g:ReplacePane(replacement, parent.id)
 		let new_pane = replacement
 
-		let g:layout = g:GenerateIds(g:layout, [0])
+		let g:wm_layout = g:GenerateIds(g:wm_layout, [0])
 
 		" If the dissolved split now has the same layout as its parent
 		let new_parent = g:GetPane("id", a:id[0:-2])
@@ -438,7 +458,7 @@ function! g:RemovePane(id)
 			let super_parent = g:GetPane("id", a:id[0:-3])
 			call g:ReplacePane(new_parent.children[0], new_parent.id)
 
-			let g:layout = g:GenerateIds(g:layout, [0])
+			let g:wm_layout = g:GenerateIds(g:wm_layout, [0])
 
 			for i in range(1, len(new_parent.children) - 1)
 				call g:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
@@ -457,20 +477,20 @@ function! g:RemovePane(id)
 		endif
 	endif
 
-	call windows#Render()
+	let g:wm_layout = g:GenerateIds(g:wm_layout, [0])
 
 	let new_window_id = new_pane.id[0:-1]
 	while has_key(g:GetPane("id", new_window_id), "children")
 		call add(new_window_id, len(g:GetPane("id", new_window_id).children) - 1)
 	endwhile
 
-	call win_gotoid(g:GetPane("id", new_window_id).window)
+	return g:GetPane("id", new_window_id)
 endfunction
 " }}}
 " FUNCTION: g:ReplacePane(new_pane, location_id) {{{1
 function! g:ReplacePane(new_pane, location_id)
 	if a:location_id == [0]
-		let g:layout = a:new_pane
+		let g:wm_layout = a:new_pane
 		return
 	endif
 
@@ -493,19 +513,30 @@ endfunction
 " ==============================================================================
 " FUNCTION: windows#WindowMoveEvent() {{{1
 function! windows#WindowMoveEvent()
-	if win_getid() == g:sidebar.window
-		let g:sidebar.focused = 1
+	if win_getid() == g:wm_sidebar.window
+		let g:wm_sidebar.focused = 1
 	elseif g:GetPane("window", win_getid()) != {}
-		let g:sidebar.focused = 0 
+		let g:wm_sidebar.focused = 0 
 		let g:current_pane = g:GetPane("window", win_getid())
 	endif
 endfunction
 " }}}
 " FUNCTION: windows#NewBufferEvent() {{{1
 function! windows#NewBufferEvent()
-	if !g:sidebar.focused && g:current_pane.window == win_getid()
-		let g:current_pane.buffer = bufnr()
+	if g:wm_sidebar.focused
+		if exists("g:wm_sidebar_color")
+			setlocal winhl=Normal:WmSidebarColor
+		endif
+
+	else
+		if exists("g:wm_window_color")
+			setlocal winhl=Normal:WmWindowColor
+		endif
+
+		if g:current_pane.window == win_getid()
+			let g:current_pane.buffer = bufnr()
+		endif
 	endif
 
-endfunction
-" }}}
+	endfunction
+	" }}}
