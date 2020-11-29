@@ -7,7 +7,7 @@ function! windows#Enable()
 	let g:current_pane = g:layout " The current pane not including the sidebar
 	let g:max_num = 1
 
-	let g:sidebar = {"open":0, "focused":0, "size":0.2, "side":"left", "buffers":[], "window":"", "command":"vsplit"}
+	let g:sidebar = {"open":0, "focused":0, "size":40, "side":"left", "buffers":[], "window":"", "command":"vsplit"}
 
 	call s:InitializeMappings()
 
@@ -20,7 +20,7 @@ endfunction
 " }}}
 " FUNCTION: s:InitializeMappings() {{{1
 function! s:InitializeMappings()
-	nnoremap <C-c> :call windows#Close(["current"])<CR>
+	nnoremap <C-c> :call windows#Close()<CR>
 	nnoremap <C-w>r :call windows#Render()<CR>
 	nnoremap <F6> :call windows#ToggleSidebarOpen()<CR>
 	nnoremap <F7> :call windows#ToggleSidebarFocus()<CR>
@@ -54,30 +54,28 @@ function! windows#Render()
 	" Generate the recursive variables
 	let g:layout.size = 1
 	let g:layout = g:GenerateIds(g:layout, [0])
-	let winwidth = 1.0
-
-	" Remove other splits
-	wincmd o
 
 	" Create a sidebar
 	if g:sidebar.open
-		" Delete the previous sidebar buffer, if there is one
-		if exists("g:sidebar.buffer")
-			exec string(g:sidebar.buffer) . "bdelete!"
+		let sidebar_width = (g:sidebar.size > 1) ? (g:sidebar.size) : (g:sidebar.size * &columns)
+
+		call win_gotoid(g:sidebar.window)
+		if win_getid() == g:sidebar.window " If the sidebar is already open
+			wincmd o
+			vnew
+
+		else " If the sidebar needs to be created
+			exec g:sidebar.command
+			exec "wincmd " . (g:sidebar.side == "right" ? "L" : "H")
+			let g:sidebar.window = win_getid()
+			let g:sidebar.buffer = bufnr()
+			wincmd p
 		endif
-
-		" Create a window on the left with the correct width
-		exec g:sidebar.command
-		exec "wincmd " . (g:sidebar.side == "right" ? "L" : "H")
-		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
-
-		" Set the related variables
-		let g:sidebar.window = win_getid()
-		let g:sidebar.buffer = bufnr()
-		let winwidth = 1.0 - g:sidebar.size
-
-		" Return to the main pane
-		wincmd p
+	else
+		new
+		wincmd o
+		
+		let sidebar_width = 0
 	endif
 
 	" Create a list of all windows to be resized at the end
@@ -89,16 +87,16 @@ function! windows#Render()
 	" Resize the sidebar if it is open
 	if g:sidebar.open
 		call win_gotoid(g:sidebar.window)
-		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
+		exec "vertical resize " . string(sidebar_width)
 	endif
 
 	" Set the sizes of all of the windows in the window list
 	for q in g:window_list " For each level of window
 		for r in q " For each individual window
 			call win_gotoid(r.winid)
-			exec "vertical resize " . string(1.0 * r.size[0] * &columns * winwidth)
+			exec "vertical resize " . string((&columns - sidebar_width) * r.size[0])
 			" Subtract 1 because of statusline of each window
-			exec "resize " . string(1.0 * r.size[1] * &lines - 1.0)
+			exec "resize " . string(&lines * r.size[1])
 			setlocal winfixheight
 			setlocal winfixwidth
 		endfor
@@ -107,7 +105,7 @@ function! windows#Render()
 	" Resize the sidebar again
 	if g:sidebar.open
 		call win_gotoid(g:sidebar.window)
-		exec "vertical resize " . string(1.0 * g:sidebar.size * &columns)
+		exec "vertical resize " . string(sidebar_width)
 	endif
 
 	"echo "rendering to " . string(g:current_pane)
