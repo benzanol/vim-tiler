@@ -7,7 +7,7 @@ function! windows#Enable()
 	let g:current_pane = g:wm_layout " The current pane not including the sidebar
 	let g:max_num = 1
 
-	let g:wm_sidebar = {"open":0, "focused":0, "size":40, "side":"left", "windows":[], "bars":[]}
+	let g:wm_sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
 	let g:wm_bottombar = {"open":0, "focused":0, "size":60, "window":"", "bars":[]}
 
 	call s:InitializeMappings()
@@ -73,8 +73,8 @@ function! windows#Render()
 	let sidebar_size = 0
 	let bottombar_size = 0
 
-	" Close all windows except for sidebar windows, and the current window
-	wincmd J | wincmd L
+	" Close all windows except for sidebar windows, and a blank window
+	new | wincmd J | wincmd L
 	let windows_window = win_getid()
 
 	if g:wm_sidebar.open || g:wm_bottombar.open
@@ -92,8 +92,8 @@ function! windows#Render()
 			exec string(close_window) . "close"
 		endfor
 	endif
-
-	" Load the sidebar
+	" }}}
+	" Load the sidebar {{{2
 	if g:wm_sidebar.open
 		let g:did = "already open"
 		" Generate the new sidebar, and figure out the windows that it adds
