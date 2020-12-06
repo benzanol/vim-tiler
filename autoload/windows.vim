@@ -8,7 +8,6 @@ function! windows#Enable()
 	let g:max_num = 1
 
 	let g:wm_sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
-	let g:wm_bottombar = {"open":0, "focused":0, "size":60, "window":"", "bars":[]}
 
 	call s:InitializeMappings()
 
@@ -23,6 +22,10 @@ endfunction
 function! s:InitializeMappings()
 	nnoremap <silent> <C-c> :call windows#Close()<CR>
 	nnoremap <silent> <C-w>r :call windows#Render()<CR>
+
+	nnoremap <silent> <F6> :call windows#ToggleSidebarOpen()<CR>
+	nnoremap <silent> <F7> :call windows#ToggleSidebarFocus()<CR>
+
 	nnoremap <silent> <F6> :call windows#ToggleSidebarOpen()<CR>
 	nnoremap <silent> <F7> :call windows#ToggleSidebarFocus()<CR>
 
@@ -69,19 +72,22 @@ function! windows#Render()
 		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
 	endif
 	" }}}
-	" Generate the starting window layout, with only the sidebar and bottombar {{{2
+	" Generate the starting window layout, with only the sidebar {{{2
 	let sidebar_size = 0
-	let bottombar_size = 0
 
-	" Close all windows except for sidebar windows, and a blank window
-	new | wincmd J | wincmd L
+	" Close all windows except for sidebar windows, and the current/blank window
+	if index(g:wm_sidebar.windows, win_getid()) != -1
+		new
+	endif
+
+	wincmd J | wincmd L
 	let windows_window = win_getid()
 
-	if g:wm_sidebar.open || g:wm_bottombar.open
+	if g:wm_sidebar.open
 		let last_window = winnr("$")
 		for i in range(1, last_window - 1)
 			let close_window = last_window - i
-			if index(g:wm_sidebar.windows, win_getid(close_window)) == -1 && win_getid(close_window) != g:wm_bottombar.window
+			if index(g:wm_sidebar.windows, win_getid(close_window)) == -1
 				exec string(close_window) . "close"
 			endif
 		endfor
@@ -95,28 +101,24 @@ function! windows#Render()
 	" }}}
 	" Load the sidebar {{{2
 	if g:wm_sidebar.open
-		let g:did = "already open"
 		" Generate the new sidebar, and figure out the windows that it adds
 		if g:wm_sidebar.windows == []
-			" If the sidebar has been loaded in the past
-			if exists("g:wm_sidebar.current.buffers") && g:wm_sidebar.current.buffers != []
-				let g:did = "loaded from buffer"
-				for q in g:wm_sidebar.current.buffers
-					new | exec "buffer " . q
-					call add(g:wm_sidebar.windows, win_getid())
-				endfor
-
-			else
-				let g:did = "create buffers"
+				" Create a list of window ids before opening the sidebar to reference later
 				let before_winids = []
 				for i in range(1, winnr("$"))
 					call add(before_winids, win_getid(i))
 				endfor
-				exec g:wm_sidebar.current.command
+
+				" Run the command to open the sidebar
+				silent! exec g:wm_sidebar.current.command
+
+				" Get a list of window ids after opening the sidebar
 				let after_winids = []
 				for i in range(1, winnr("$"))
 					call add(after_winids, win_getid(i))
 				endfor
+				
+				" Use the 2 lists of windows to figure out which ones were opened by the sidebar
 				let g:wm_sidebar.current.buffers = []
 				for q in after_winids
 					if index(before_winids, q) == -1
@@ -125,7 +127,6 @@ function! windows#Render()
 						call add(g:wm_sidebar.current.buffers, bufnr())
 					endif
 				endfor
-			endif
 		endif
 
 		" Move the sidebar windows into a column and set settings
@@ -157,15 +158,13 @@ function! windows#Render()
 		endif
 		exec "vertical resize " . string(sidebar_size)
 	endif
-
+	" }}}
+	" Load the window layout {{{2
 	" Replace the origional window with a blank one
 	call win_gotoid(windows_window)
 	let old_window_nr = winnr()
 	new | let windows_window = win_getid()
 	exec old_window_nr . "close"
-
-	" }}}
-	" Load the window layout {{{2
 	let g:window_list = []
 	call g:LoadPane(g:wm_layout, [1, 1])
 
@@ -175,7 +174,7 @@ function! windows#Render()
 			call win_gotoid(r.winid)
 			exec "vertical resize " . string((&columns - sidebar_size) * r.size[0])
 			" Subtract 1 because of statusline of each window
-			exec "resize " . string((&lines - bottombar_size) * r.size[1] - 1)
+			exec "resize " . string(&lines * r.size[1] - 1)
 			setlocal winfixheight
 			setlocal winfixwidth
 
@@ -332,47 +331,6 @@ function! windows#OpenSidebar(name)
 		let g:wm_sidebar.current = a:name
 		let g:wm_sidebar.open = 1
 		let g:wm_sidebar.focused = 1
-		call windows#Render()
-	endif
-endfunction
-" }}}
-
-" FUNCTION: windows#ToggleBottombarOpen() {{{1
-function! windows#ToggleBottombarOpen()
-	if g:wm_bottombar.open " Disable the bottombar if it is already active
-		let g:wm_bottombar.open = 0
-		let g:wm_bottombar.focused = 0
-	else " Enable the bottombar if it is not already active
-		let g:wm_bottombar.open = 1
-		let g:wm_bottombar.focused = 1 
-	endif
-
-	call windows#Render()
-endfunction
-" }}}
-" FUNCTION: windows#ToggleBottombarFocus() {{{1
-function! windows#ToggleBottombarFocus()
-	if !g:wm_bottombar.open
-		call windows#ToggleBottombarOpen()
-
-	elseif g:wm_bottombar.focused
-		let g:wm_bottombar.focused = 0
-
-	else
-		let g:wm_bottombar.focused = 1
-	endif
-
-	call windows#Render()
-endfunction
-" }}}
-" FUNCTION: windows#OpenBottombar(name) {{{1
-function! windows#OpenBottombar(name)
-	if a:name == g:wm_bottombar.current
-		call windows#TogglebottombarOpen()
-	else
-		let g:wm_bottombar.current = a:name
-		let g:wm_bottombar.open = 1
-		let g:wm_bottombar.focused = 1
 		call windows#Render()
 	endif
 endfunction
