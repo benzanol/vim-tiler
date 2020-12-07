@@ -1,57 +1,78 @@
 " ==============================================================================
 " Initialization functions
 " ==============================================================================
-" FUNCTION: windows#Enable() {{{1
-function! windows#Enable()
+" FUNCTION: windows:WindowManagerEnable() {{{1
+function! windows#WindowManagerEnable()
 	let g:wm_layout = {"num":0,"id":[0], "layout":"w", "buffer":1, "size":1, "actual_size":[1,1]}
 	let g:current_pane = g:wm_layout " The current pane not including the sidebar
 	let g:max_num = 1
 
 	let g:wm_sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
 
-	call s:InitializeMappings()
+	call s:InitializeCommands()
 
-	autocmd VimResized * call windows#Render()
-	autocmd WinEnter * call windows#WindowMoveEvent()
-	autocmd BufEnter * call windows#NewBufferEvent()
+	autocmd VimResized * call s:Render()
+	autocmd WinEnter * call s:WindowMoveEvent()
+	autocmd BufEnter * call s:NewBufferEvent()
 
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
-" FUNCTION: s:InitializeMappings() {{{1
-function! s:InitializeMappings()
-	nnoremap <silent> <C-c> :call windows#Close()<CR>
-	nnoremap <silent> <C-w>r :call windows#Render()<CR>
+" FUNCTION: s:InitializeCommands() {{{1
+function! s:InitializeCommands()
+	command WindowClose call s:Close()
+	command WindowRender call s:Render()
 
-	nnoremap <silent> <F6> :call windows#ToggleSidebarOpen()<CR>
-	nnoremap <silent> <F7> :call windows#ToggleSidebarFocus()<CR>
+	command WindowMoveDown call s:Move("v", 0)
+	command WindowMoveUp call s:Move("v", 1)
+	command WindowMoveLeft call s:Move("h", 0)
+	command WindowMoveRight call s:Move("h", 1)
 
-	nnoremap <silent> <F6> :call windows#ToggleSidebarOpen()<CR>
-	nnoremap <silent> <F7> :call windows#ToggleSidebarFocus()<CR>
+	command WindowSplitDown call s:Split("v", 0)
+	command WindowSplitUp call s:Split("v", 1)
+	command WindowSplitLeft call s:Split("h", 0)
+	command WindowSplitRight call s:Split("h", 1)
 
-	nnoremap <silent> <A-k> :call windows#Move("v", 0)<CR>
-	nnoremap <silent> <A-j> :call windows#Move("v", 1)<CR>
-	nnoremap <silent> <A-h> :call windows#Move("h", 0)<CR>
-	nnoremap <silent> <A-l> :call windows#Move("h", 1)<CR>
+	" Recommended resize values for horizontal and vertical are 0.015 and 0.025 respectively
+	command -nargs=1 WindowResizeHorizontal = call s:Resize("h", <args>)
+	command -nargs=1 WindowResizeVertical + call s:Resize("v", <args>)
 
-	nnoremap <silent> <A-K> :call windows#Split("v", 0)<CR>
-	nnoremap <silent> <A-J> :call windows#Split("v", 1)<CR>
-	nnoremap <silent> <A-H> :call windows#Split("h", 0)<CR>
-	nnoremap <silent> <A-L> :call windows#Split("h", 1)<CR>
+	command SidebarToggleOpen call s:ToggleSidebarOpen()
+	command SidebarToggleFocus call s:ToggleSidebarFocus()
+	command -nargs=1 SidebarOpen call s:OpenSidebar("<args>")
+endfunction
+" }}}
+" FUNCTION: s:DefaultMappings() {{{1
+function! s:DefaultMappings()
+	command WindowClose call s:Close()
+	command WindowRender call s:Render()
 
-	noremap <nowait> <silent> = :call windows#Resize("h", 0.015)<CR>
-	noremap <nowait> <silent> - :call windows#Resize("h", -0.015)<CR>
-	noremap <nowait> <silent> + :call windows#Resize("v", 0.025)<CR>
-	noremap <nowait> <silent> _ :call windows#Resize("v", -0.025)<CR>
+	command WindowMoveUp call s:Move("v", 0)
+	command WindowMoveDown call s:Move("v", 1)
+	command WindowMoveLeft call s:Move("h", 0)
+	command WindowMoveRight call s:Move("h", 1)
+
+	command WindowSplitUp call s:Split("v", 0)
+	command WindowSplitDown call s:Split("v", 1)
+	command WindowSplitLeft call s:Split("h", 0)
+	command WindowSplitRight call s:Split("h", 1)
+
+	" Recommended resize values for horizontal and vertical are 0.015 and 0.025 respectively
+	command -nargs=1 WindowResizeHorizontal = call s:Resize("h", <args>)
+	command -nargs=1 WindowResizeVertical + call s:Resize("v", <args>)
+
+	command SidebarToggleOpen call s:ToggleSidebarOpen()
+	command SidebarToggleFocus call s:ToggleSidebarFocus()
+	command -nargs=1 SidebarOpen call s:OpenSidebar("<args>")
 endfunction
 " }}}
 
 " ==============================================================================
 " User level functions
 " ==============================================================================
-" FUNCTION: windows#Render() {{{1
-function! windows#Render()
-	" Prepare for rendering {{{2
+" FUNCTION: s:Render() {{{1
+function! s:Render()
+	" Prepare for rendering
 	" Disable autocommands
 	autocmd! WinEnter
 	autocmd! BufEnter
@@ -76,8 +97,8 @@ function! windows#Render()
 	new
 	wincmd o
 	let windows_window = win_getid()
-	" }}}
-	" Load the sidebar {{{2
+	
+	" Load the sidebar
 	let sidebar_size = 0
 	let g:wm_sidebar.windows = []
 
@@ -139,8 +160,8 @@ function! windows#Render()
 		endif
 		exec "vertical resize " . string(sidebar_size)
 	endif
-	" }}}
-	" Load the window layout {{{2
+	
+	" Load the window layout
 	" Replace the origional window with a blank one
 	call win_gotoid(windows_window)
 	let old_window_nr = winnr()
@@ -181,37 +202,37 @@ function! windows#Render()
 			setlocal winhl=Normal:WmCurrentColor
 		endif
 	endif
-	" }}}
-	" Run post rendering commands {{{2
+	
+	" Run post rendering commands
 	" Reenable autocommands
-	autocmd WinEnter * call windows#WindowMoveEvent()
-	autocmd BufEnter * call windows#NewBufferEvent()
+	autocmd WinEnter * call s:WindowMoveEvent()
+	autocmd BufEnter * call s:NewBufferEvent()
 
 	if exists("g:wm_current_color")
 		autocmd BufEnter * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
 		autocmd BufLeave * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
 	endif
-	" }}}
+	
 endfunction
 " }}}
-" FUNCTION: windows#Split(direction, after) {{{1
-function! windows#Split(direction, after)
+" FUNCTION: s:Split(direction, after) {{{1
+function! s:Split(direction, after)
 	let current_id = g:GetPane("window", win_getid()).id
 	let new_pane = {"layout":"w"}
 
 	let g:current_pane = g:AddPane(new_pane, current_id, a:direction, a:after)
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
-" FUNCTION: windows#Close() {{{1
-function! windows#Close()
+" FUNCTION: s:Close() {{{1
+function! s:Close()
 	let remove_id = g:GetPane("window", win_getid()).id
 	let g:current_pane = g:RemovePane(remove_id)
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
-" FUNCTION: windows#Move(direction, value) {{{1
-function! windows#Move(direction, value)
+" FUNCTION: s:Move(direction, value) {{{1
+function! s:Move(direction, value)
 	let pane = g:GetPane("window", win_getid())
 	let id = pane.id
 	let parent = g:GetPane("id", id[0:-2])
@@ -228,8 +249,8 @@ function! windows#Move(direction, value)
 			return
 		endif
 
-		call windows#Move(a:direction == "v" ? "h" : "v", 1)
-		call windows#Move(a:direction, a:value)
+		call s:Move(a:direction == "v" ? "h" : "v", 1)
+		call s:Move(a:direction, a:value)
 
 		" If there are only 2 panes in the parent, swap their places
 	elseif len(parent.children) == 2
@@ -242,12 +263,12 @@ function! windows#Move(direction, value)
 		call g:AddPane(pane, location_pane.id, a:direction == "v" ? "h" : "v", 1)
 	endif
 
-	call windows#Render()
+	call s:Render()
 	call win_gotoid(pane.window)
 endfunction
 " }}}
-" FUNCTION: windows#Resize(direction, amount) {{{1
-function! windows#Resize(direction, amount)
+" FUNCTION: s:Resize(direction, amount) {{{1
+function! s:Resize(direction, amount)
 	let id = g:GetPane("window", win_getid()).id
 
 	if len(id) >= 2 && g:GetPane("id", id[0:-2]).layout == a:direction
@@ -271,12 +292,12 @@ function! windows#Resize(direction, amount)
 		endif
 	endfor
 
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
 
-" FUNCTION: windows#ToggleSidebarOpen() {{{1
-function! windows#ToggleSidebarOpen()
+" FUNCTION: s:ToggleSidebarOpen() {{{1
+function! s:ToggleSidebarOpen()
 	if g:wm_sidebar.open " Disable the sidebar if it is already active
 		let g:wm_sidebar.open = 0
 		let g:wm_sidebar.focused = 0
@@ -286,13 +307,13 @@ function! windows#ToggleSidebarOpen()
 		let g:wm_sidebar.focused = 1 
 	endif
 
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
-" FUNCTION: windows#ToggleSidebarFocus() {{{1
-function! windows#ToggleSidebarFocus()
+" FUNCTION: s:ToggleSidebarFocus() {{{1
+function! s:ToggleSidebarFocus()
 	if !g:wm_sidebar.open
-		call windows#ToggleSidebarOpen()
+		call s:ToggleSidebarOpen()
 
 	elseif g:wm_sidebar.focused
 		let g:wm_sidebar.focused = 0
@@ -301,11 +322,11 @@ function! windows#ToggleSidebarFocus()
 		let g:wm_sidebar.focused = 1
 	endif
 
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
-" FUNCTION: windows#OpenSidebar(name) {{{1
-function! windows#OpenSidebar(name)
+" FUNCTION: s:OpenSidebar(name) {{{1
+function! s:OpenSidebar(name)
 	let g:check =0
 	if a:name != g:wm_sidebar.current.name
 		let g:check = 1
@@ -320,7 +341,7 @@ function! windows#OpenSidebar(name)
 
 	let g:wm_sidebar.open = 1
 	let g:wm_sidebar.focused = 1
-	call windows#Render()
+	call s:Render()
 endfunction
 " }}}
 
@@ -576,8 +597,8 @@ endfunction
 " ==============================================================================
 " Autocmd functions
 " ==============================================================================
-" FUNCTION: windows#WindowMoveEvent() {{{1
-function! windows#WindowMoveEvent()
+" FUNCTION: s:WindowMoveEvent() {{{1
+function! s:WindowMoveEvent()
 	if index(g:wm_sidebar.windows, win_getid()) != -1
 		let g:wm_sidebar.focused = 1
 	elseif g:GetPane("window", win_getid()) != {}
@@ -586,8 +607,8 @@ function! windows#WindowMoveEvent()
 	endif
 endfunction
 " }}}
-" FUNCTION: windows#NewBufferEvent() {{{1
-function! windows#NewBufferEvent()
+" FUNCTION: s:NewBufferEvent() {{{1
+function! s:NewBufferEvent()
 	if g:wm_sidebar.focused
 		if exists("g:wm_sidebar_color")
 			setlocal winhl=Normal:WmSidebarColor
