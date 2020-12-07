@@ -20,26 +20,26 @@ endfunction
 " }}}
 " FUNCTION: s:InitializeCommands() {{{1
 function! s:InitializeCommands()
-	command WindowClose call s:Close()
-	command WindowRender call s:Render()
+	command! WindowClose call s:Close()
+	command! WindowRender call s:Render()
 
-	command WindowMoveDown call s:Move("v", 0)
-	command WindowMoveUp call s:Move("v", 1)
-	command WindowMoveLeft call s:Move("h", 0)
-	command WindowMoveRight call s:Move("h", 1)
+	command! WindowMoveDown call s:Move("v", 0)
+	command! WindowMoveUp call s:Move("v", 1)
+	command! WindowMoveLeft call s:Move("h", 0)
+	command! WindowMoveRight call s:Move("h", 1)
 
-	command WindowSplitDown call s:Split("v", 0)
-	command WindowSplitUp call s:Split("v", 1)
-	command WindowSplitLeft call s:Split("h", 0)
-	command WindowSplitRight call s:Split("h", 1)
+	command! WindowSplitDown call s:Split("v", 0)
+	command! WindowSplitUp call s:Split("v", 1)
+	command! WindowSplitLeft call s:Split("h", 0)
+	command! WindowSplitRight call s:Split("h", 1)
 
 	" Recommended resize values for horizontal and vertical are 0.015 and 0.025 respectively
-	command -nargs=1 WindowResizeHorizontal = call s:Resize("h", <args>)
-	command -nargs=1 WindowResizeVertical + call s:Resize("v", <args>)
+	command! -nargs=1 WindowResizeHorizontal = call s:Resize("h", <args>)
+	command! -nargs=1 WindowResizeVertical + call s:Resize("v", <args>)
 
-	command SidebarToggleOpen call s:ToggleSidebarOpen()
-	command SidebarToggleFocus call s:ToggleSidebarFocus()
-	command -nargs=1 SidebarOpen call s:OpenSidebar("<args>")
+	command! SidebarToggleOpen call s:ToggleSidebarOpen()
+	command! SidebarToggleFocus call s:ToggleSidebarFocus()
+	command! -nargs=1 SidebarOpen call s:OpenSidebar("<args>")
 endfunction
 " }}}
 " FUNCTION: s:DefaultMappings() {{{1
@@ -72,7 +72,6 @@ endfunction
 " ==============================================================================
 " FUNCTION: s:Render() {{{1
 function! s:Render()
-	" Prepare for rendering
 	" Disable autocommands
 	autocmd! WinEnter
 	autocmd! BufEnter
@@ -161,7 +160,6 @@ function! s:Render()
 		exec "vertical resize " . string(sidebar_size)
 	endif
 	
-	" Load the window layout
 	" Replace the origional window with a blank one
 	call win_gotoid(windows_window)
 	let old_window_nr = winnr()
@@ -203,7 +201,13 @@ function! s:Render()
 		endif
 	endif
 	
-	" Run post rendering commands
+	" Remove any empty buffers that were created
+	for i in range(1, bufnr("$"))
+		if bufname(i) == "" && bufwinnr(i) == -1
+			silent! exec string(i) . "bdelete!"
+		endif
+	endfor
+	
 	" Reenable autocommands
 	autocmd WinEnter * call s:WindowMoveEvent()
 	autocmd BufEnter * call s:NewBufferEvent()
