@@ -71,63 +71,44 @@ function! windows#Render()
 	if exists("g:wm_current_color")
 		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
 	endif
-	" }}}
-	" Generate the starting window layout, with only the sidebar {{{2
-	let sidebar_size = 0
 
-	" Close all windows except for sidebar windows, and the current/blank window
-	if index(g:wm_sidebar.windows, win_getid()) != -1
-		new
-	endif
-
-	wincmd J | wincmd L
+	" Close all windows except for sidebar windows, and a blank window
+	new
+	wincmd o
 	let windows_window = win_getid()
-
-	if g:wm_sidebar.open
-		let last_window = winnr("$")
-		for i in range(1, last_window - 1)
-			let close_window = last_window - i
-			if index(g:wm_sidebar.windows, win_getid(close_window)) == -1
-				exec string(close_window) . "close"
-			endif
-		endfor
-	else
-		let last_window = winnr("$")
-		for i in range(1, last_window - 1)
-			let close_window = last_window - i
-			exec string(close_window) . "close"
-		endfor
-	endif
 	" }}}
 	" Load the sidebar {{{2
+	let sidebar_size = 0
+	let g:wm_sidebar.windows = []
+
 	if g:wm_sidebar.open
-		" Generate the new sidebar, and figure out the windows that it adds
-		if g:wm_sidebar.windows == []
-				" Create a list of window ids before opening the sidebar to reference later
-				let before_winids = []
-				for i in range(1, winnr("$"))
-					call add(before_winids, win_getid(i))
-				endfor
+		" Create a list of window ids before opening the sidebar to reference later
+		let before_winids = []
+		for i in range(1, winnr("$"))
+			call add(before_winids, win_getid(i))
+		endfor
 
-				" Run the command to open the sidebar
-				silent! exec g:wm_sidebar.current.command
+		" Run the command to open the sidebar
+		silent! exec g:wm_sidebar.current.command
 
-				" Get a list of window ids after opening the sidebar
-				let after_winids = []
-				for i in range(1, winnr("$"))
-					call add(after_winids, win_getid(i))
-				endfor
-				
-				" Use the 2 lists of windows to figure out which ones were opened by the sidebar
-				let g:wm_sidebar.current.buffers = []
-				for q in after_winids
-					if index(before_winids, q) == -1
-						call add(g:wm_sidebar.windows, q)
-						call win_gotoid(q)
-						call add(g:wm_sidebar.current.buffers, bufnr())
-					endif
-				endfor
-		endif
+		" Get a list of window ids after opening the sidebar
+		let after_winids = []
+		for i in range(1, winnr("$"))
+			call add(after_winids, win_getid(i))
+		endfor
+
+		" Use the 2 lists of windows to figure out which ones were opened by the sidebar
+		let g:wm_sidebar.current.buffers = []
+		for q in after_winids
+			if index(before_winids, q) == -1
+				call add(g:wm_sidebar.windows, q)
+				call win_gotoid(q)
+				call add(g:wm_sidebar.current.buffers, bufnr())
+			endif
+		endfor
+
+		" Set the loaded sidebar to the most recently loaded one
+		let g:wm_sidebar.loaded = g:wm_sidebar.current.name
 
 		" Move the sidebar windows into a column and set settings
 		for i in range(len(g:wm_sidebar.windows))
@@ -139,7 +120,7 @@ function! windows#Render()
 			setlocal nonumber
 			setlocal winfixwidth
 			setlocal laststatus=0
-			
+
 			if exists("g:wm_sidebar_color")
 				setlocal winhl=Normal:WmSidebarColor
 			endif
@@ -325,14 +306,21 @@ endfunction
 " }}}
 " FUNCTION: windows#OpenSidebar(name) {{{1
 function! windows#OpenSidebar(name)
-	if a:name == g:wm_sidebar.current
-		call windows#ToggleSidebarOpen()
-	else
-		let g:wm_sidebar.current = a:name
-		let g:wm_sidebar.open = 1
-		let g:wm_sidebar.focused = 1
-		call windows#Render()
+	let g:check =0
+	if a:name != g:wm_sidebar.current.name
+		let g:check = 1
+		for q in g:wm_sidebar.bars
+			let g:var = q
+			if has_key(q, "name") && q.name == a:name
+				let g:wm_sidebar.current = q
+				break
+			endif
+		endfor
 	endif
+
+	let g:wm_sidebar.open = 1
+	let g:wm_sidebar.focused = 1
+	call windows#Render()
 endfunction
 " }}}
 
