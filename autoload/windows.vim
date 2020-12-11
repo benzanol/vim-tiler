@@ -9,6 +9,7 @@ function! windows#WindowManagerEnable()
 	let g:tab = 0
 	
 	let g:wm_sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
+	let g:wm_sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
 
 	call s:InitializeCommands()
 
@@ -69,7 +70,7 @@ function! s:Render()
 
 	" Generate various variables
 	let g:wm_tab_layouts[g:tab].size = 1
-	let g:wm_tab_layouts[g:tab] = g:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+	let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
 	
 	if exists("g:wm_sidebar_color")
 		exec "highlight WmSidebarColor ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
@@ -140,6 +141,12 @@ function! s:Render()
 		call win_gotoid(windows_window)
 		wincmd L
 
+		" Create a blank window if a window wasn't created
+		if !exists("g:wm_sidebar.windows") || len(g:wm_sidebar.windows) < 1
+			vnew | wincmd H
+			let g:wm_sidebar.windows = [win_getid()]
+		endif
+		
 		" Figure out the size and resize the sidebar
 		call win_gotoid(g:wm_sidebar.windows[0])
 		if g:wm_sidebar.size > 1
@@ -156,7 +163,7 @@ function! s:Render()
 	new | let windows_window = win_getid()
 	exec old_window_nr . "close"
 	let g:window_list = []
-	call g:LoadPane(g:wm_tab_layouts[g:tab], [1, 1])
+	call s:LoadPane(g:wm_tab_layouts[g:tab], [1, 1])
 
 	" Set the sizes of all of the windows in the window list
 	for q in g:window_list " For each level of window
@@ -216,31 +223,52 @@ endfunction
 " }}}
 " FUNCTION: s:Split(direction, after) {{{1
 function! s:Split(direction, after)
-	let current_id = g:GetPane("window", win_getid()).id
+	let pane = s:GetPane("window", win_getid())
+	if pane == {}
+		call s:Render()
+		return
+	endif
+
+	let current_id = pane.id
 	let new_pane = {"layout":"w"}
 
-	let g:current_pane[g:tab] = g:AddPane(new_pane, current_id, a:direction, a:after)
+	let g:current_pane[g:tab] = s:AddPane(new_pane, current_id, a:direction, a:after)
 	call s:Render()
 endfunction
 " }}}
 " FUNCTION: s:Close() {{{1
 function! s:Close()
-	let remove_id = g:GetPane("window", win_getid()).id
-	let g:current_pane[g:tab] = g:RemovePane(remove_id)
+	if index(g:wm_sidebar.windows, win_getid()) != -1
+		call s:ToggleSidebarOpen()
+		return
+	endif
+
+	let pane = s:GetPane("window", win_getid())
+	if pane == {} || len(pane.id) <= 1
+		call s:Render()
+		return
+	endif
+
+	let g:current_pane[g:tab] = s:RemovePane(pane.id)
 	call s:Render()
 endfunction
 " }}}
 " FUNCTION: s:Move(direction, value) {{{1
 function! s:Move(direction, value)
-	let pane = g:GetPane("window", win_getid())
+	let pane = s:GetPane("window", win_getid())
+	if pane == {}
+		call s:Render()
+		return
+	endif
+
 	let id = pane.id
-	let parent = g:GetPane("id", id[0:-2])
-	let parents_parent = g:GetPane("id", id[0:-3])
+	let parent = s:GetPane("id", id[0:-2])
+	let parents_parent = s:GetPane("id", id[0:-3])
 
 	" Move the pane out of its current parent
 	if parent.layout != a:direction
-		call g:RemovePane(pane.id)
-		call g:AddPane(pane, id[0:-2], a:direction, a:value)
+		call s:RemovePane(pane.id)
+		call s:AddPane(pane, id[0:-2], a:direction, a:value)
 
 		" If the pane is on the end of its parent, move it out
 	elseif (id[-1] == 0 && a:value == 0) || (id[-1] == len(parent.children) - 1 && a:value == 1)
@@ -258,8 +286,8 @@ function! s:Move(direction, value)
 		" Group the pane with the next pane in the parent
 	else
 		let location_pane = parent.children[id[-1] + (a:value ? 1 : -1)]
-		call g:RemovePane(pane.id)
-		call g:AddPane(pane, location_pane.id, a:direction == "v" ? "h" : "v", 1)
+		call s:RemovePane(pane.id)
+		call s:AddPane(pane, location_pane.id, a:direction == "v" ? "h" : "v", 1)
 	endif
 
 	call s:Render()
@@ -268,14 +296,29 @@ endfunction
 " }}}
 " FUNCTION: s:Resize(direction, amount) {{{1
 function! s:Resize(direction, amount)
-	let id = g:GetPane("window", win_getid()).id
+	if index(g:wm_sidebar.windows, win_getid()) != -1
+		if g:wm_sidebar.size > 1
+			let g:wm_sidebar.size += 1.0 * &columns * a:amount
+		else
+			let g:wm_sidebar.size += a:amount
+		endif
+		call s:Render()
+		return
+	endif
 
-	if len(id) >= 2 && g:GetPane("id", id[0:-2]).layout == a:direction
-		let parent = g:GetPane("id", id[0:-2])
-		let pane = g:GetPane("id", id)
+	let pane = s:GetPane("window", win_getid())
+	if pane == {}
+		call s:Render()
+		return
+	endif
+	let id = pane.id
+
+	if len(id) >= 2 && s:GetPane("id", id[0:-2]).layout == a:direction
+		let parent = s:GetPane("id", id[0:-2])
+		let pane = s:GetPane("id", id)
 	elseif len(id) >= 3
-		let pane = g:GetPane("id", id[0:-2])
-		let parent = g:GetPane("id", id[0:-3])
+		let pane = s:GetPane("id", id[0:-2])
+		let parent = s:GetPane("id", id[0:-3])
 	else
 		return
 	endif
@@ -347,8 +390,8 @@ endfunction
 " ==============================================================================
 " Background functions
 " ==============================================================================
-" FUNCTION: g:GetPane(datapoint, value) {{{1
-function! g:GetPane(datapoint, value)
+" FUNCTION: s:GetPane(datapoint, value) {{{1
+function! s:GetPane(datapoint, value)
 	if a:datapoint == "id"
 		if a:value == [0]
 			return g:wm_tab_layouts[g:tab]
@@ -387,8 +430,8 @@ function! g:GetPane(datapoint, value)
 	endif
 endfunction
 " }}}
-" FUNCTION: g:LoadPane(pane, size) {{{1
-function! g:LoadPane(pane, size)
+" FUNCTION: s:LoadPane(pane, size) {{{1
+function! s:LoadPane(pane, size)
 	" Open a window
 	if a:pane["layout"] == "w"
 		" Open the correct buffer in the window if the buffer exists
@@ -423,7 +466,7 @@ function! g:LoadPane(pane, size)
 
 			" Go to the window and load it
 			call win_gotoid(a:pane.children[i].window)
-			call g:LoadPane(a:pane.children[i], new_size)
+			call s:LoadPane(a:pane.children[i], new_size)
 		endfor
 
 		if has_key(a:pane, "window")
@@ -432,8 +475,8 @@ function! g:LoadPane(pane, size)
 	endif
 endfunction
 " }}}
-" FUNCTION: g:GenerateIds(pane, id) {{{1
-function g:GenerateIds(pane, id)
+" FUNCTION: s:GenerateIds(pane, id) {{{1
+function s:GenerateIds(pane, id)
 	let a:pane.id = a:id
 
 	if !has_key(a:pane, "children")
@@ -444,21 +487,21 @@ function g:GenerateIds(pane, id)
 	for i in range(len(children))
 		let new_id = a:id + [i]
 
-		let children[i] = g:GenerateIds(children[i], new_id)
+		let children[i] = s:GenerateIds(children[i], new_id)
 	endfor
 	return a:pane
 endfunction
 " }}}
-" FUNCTION: g:AddPane(new_pane, location_id, direction, after) {{{1
-function! g:AddPane(new_pane, location_id, direction, after)
-	let location_pane = g:GetPane("id", a:location_id)
+" FUNCTION: s:AddPane(new_pane, location_id, direction, after) {{{1
+function! s:AddPane(new_pane, location_id, direction, after)
+	let location_pane = s:GetPane("id", a:location_id)
 
 	if location_pane == {}
 		echo "Error: Location " . string(a:location_id) . " not found"
 		return -1
 	endif
 
-	let location_parent = g:GetPane("id", a:location_id[0:-2])
+	let location_parent = s:GetPane("id", a:location_id[0:-2])
 
 	" The new pane should be added to the list in the location id
 	if location_pane.layout == a:direction
@@ -502,20 +545,20 @@ function! g:AddPane(new_pane, location_id, direction, after)
 		let new_parent.size = location_pane.size
 		let new_parent.children = a:after ? [location_pane, a:new_pane] : [a:new_pane, location_pane]
 
-		call g:ReplacePane(new_parent, a:location_id)
+		call s:ReplacePane(new_parent, a:location_id)
 
 		" Set the window sizes to be 50/50
 		let new_parent.children[0].size = 0.5
 		let new_parent.children[1].size = 0.5
 	endif
 
-	let g:wm_tab_layouts[g:tab] = g:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+	let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
 	return a:new_pane
 endfunction
 " }}}
-" FUNCTION: g:RemovePane(id) {{{1
-function! g:RemovePane(id)
-	let parent = g:GetPane("id", a:id[0:-2])
+" FUNCTION: s:RemovePane(id) {{{1
+function! s:RemovePane(id)
+	let parent = s:GetPane("id", a:id[0:-2])
 	let remove_index = a:id[-1]
 
 	call remove(parent.children, remove_index)
@@ -525,21 +568,21 @@ function! g:RemovePane(id)
 		let replacement = parent.children[0]
 		let replacement.id = parent.id
 		let replacement.size = parent.size
-		call g:ReplacePane(replacement, parent.id)
+		call s:ReplacePane(replacement, parent.id)
 		let new_pane = replacement
 
-		let g:wm_tab_layouts[g:tab] = g:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+		let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
 
 		" If the dissolved split now has the same layout as its parent
-		let new_parent = g:GetPane("id", a:id[0:-2])
-		if len(a:id) >= 3 && new_parent.layout == g:GetPane("id", a:id[0:-3]).layout
-			let super_parent = g:GetPane("id", a:id[0:-3])
-			call g:ReplacePane(new_parent.children[0], new_parent.id)
+		let new_parent = s:GetPane("id", a:id[0:-2])
+		if len(a:id) >= 3 && new_parent.layout == s:GetPane("id", a:id[0:-3]).layout
+			let super_parent = s:GetPane("id", a:id[0:-3])
+			call s:ReplacePane(new_parent.children[0], new_parent.id)
 
-			let g:wm_tab_layouts[g:tab] = g:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+			let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
 
 			for i in range(1, len(new_parent.children) - 1)
-				call g:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
+				call s:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
 			endfor
 		endif
 
@@ -555,25 +598,25 @@ function! g:RemovePane(id)
 		endif
 	endif
 
-	let g:wm_tab_layouts[g:tab] = g:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+	let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
 
 	let new_window_id = new_pane.id[0:-1]
-	while has_key(g:GetPane("id", new_window_id), "children")
-		call add(new_window_id, len(g:GetPane("id", new_window_id).children) - 1)
+	while has_key(s:GetPane("id", new_window_id), "children")
+		call add(new_window_id, len(s:GetPane("id", new_window_id).children) - 1)
 	endwhile
 
-	return g:GetPane("id", new_window_id)
+	return s:GetPane("id", new_window_id)
 endfunction
 " }}}
-" FUNCTION: g:ReplacePane(new_pane, location_id) {{{1
-function! g:ReplacePane(new_pane, location_id)
+" FUNCTION: s:ReplacePane(new_pane, location_id) {{{1
+function! s:ReplacePane(new_pane, location_id)
 	if a:location_id == [0]
 		let g:wm_tab_layouts[g:tab] = a:new_pane
 		return
 	endif
 
-	let location_pane = g:GetPane("id", a:location_id)
-	let location_parent = g:GetPane("id", a:location_id[0:-2])
+	let location_pane = s:GetPane("id", a:location_id)
+	let location_parent = s:GetPane("id", a:location_id[0:-2])
 	let location_index = index(location_parent.children, location_pane)
 
 	call remove(location_parent.children, location_index)
@@ -588,9 +631,9 @@ endfunction
 function! s:WindowMoveEvent()
 	silent! if index(g:wm_sidebar.windows, win_getid()) != -1
 		let g:wm_sidebar.focused = 1
-	silent! elseif g:GetPane("window", win_getid()) != {}
+	silent! elseif s:GetPane("window", win_getid()) != {}
 		let g:wm_sidebar.focused = 0 
-		let g:current_pane[g:tab] = g:GetPane("window", win_getid())
+		let g:current_pane[g:tab] = s:GetPane("window", win_getid())
 	endif
 endfunction
 " }}}
