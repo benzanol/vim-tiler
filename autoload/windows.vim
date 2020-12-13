@@ -83,9 +83,11 @@ function! s:Render()
 		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
 	endif
 
-	" Close all windows except for sidebar windows, and a blank window
-	new
-	wincmd o
+	" Close all windows except for a blank window
+	new | wincmd J | wincmd L
+	while winnr("$") > 1
+		1close!
+	endwhile
 	let windows_window = win_getid()
 
 	" Load the sidebar
