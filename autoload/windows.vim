@@ -7,15 +7,13 @@ function! windows#WindowManagerEnable()
 	let g:wm_tab_layouts = [new_layout]
 	let g:current_pane = [new_layout]
 	let g:tab = 0
-	
+
 	let g:wm_sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
 	let g:wm_sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
 
 	call s:InitializeCommands()
 
-	autocmd WinEnter * call s:WindowMoveEvent()
-	autocmd BufEnter * call s:NewBufferEvent()
-	autocmd TabEnter * call s:NewTabEvent()
+	call s:EnableAutocommands()
 	autocmd VimResized * call s:Render()
 
 	call s:Render()
@@ -53,6 +51,7 @@ function! s:GetNewLayout()
 	let new_layout.layout = "w"
 	let new_layout.buffer = 1
 	let new_layout.size = 1
+	let new_layout.window = win_getid()
 
 	return new_layout
 endfunction
@@ -61,168 +60,6 @@ endfunction
 " ==============================================================================
 " User level functions
 " ==============================================================================
-" FUNCTION: s:Render() {{{1
-function! s:Render()
-	" Disable autocommands
-	autocmd! WinEnter
-	autocmd! BufEnter
-	autocmd! TabEnter
-
-	" Generate various variables
-	let g:wm_tab_layouts[g:tab].size = 1
-	let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
-	
-	if exists("g:wm_sidebar_color")
-		exec "highlight WmSidebarColor ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
-		exec "highlight Normal ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
-	endif
-	if exists("g:wm_window_color")
-		exec "highlight WmWindowColor ctermbg=" . g:wm_window_color.cterm . " guibg=" . g:wm_window_color.gui
-	endif
-	if exists("g:wm_current_color")
-		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
-	endif
-
-	" Close all windows except for a blank window
-	new | wincmd J | wincmd L
-	while winnr("$") > 1
-		1close!
-	endwhile
-	let windows_window = win_getid()
-
-	" Load the sidebar
-	let sidebar_size = 0
-	let g:wm_sidebar.windows = []
-
-	if g:wm_sidebar.open
-		" Create a list of window ids before opening the sidebar to reference later
-		let before_winids = []
-		for i in range(1, winnr("$"))
-			call add(before_winids, win_getid(i))
-		endfor
-
-		" Run the command to open the sidebar
-		silent! exec g:wm_sidebar.current.command
-
-		" Get a list of window ids after opening the sidebar
-		let after_winids = []
-		for i in range(1, winnr("$"))
-			call add(after_winids, win_getid(i))
-		endfor
-
-		" Use the 2 lists of windows to figure out which ones were opened by the sidebar
-		let g:wm_sidebar.current.buffers = []
-		for q in after_winids
-			if index(before_winids, q) == -1
-				call add(g:wm_sidebar.windows, q)
-				call win_gotoid(q)
-				call add(g:wm_sidebar.current.buffers, bufnr())
-			endif
-		endfor
-
-		" Set the loaded sidebar to the most recently loaded one
-		let g:wm_sidebar.loaded = g:wm_sidebar.current.name
-
-		" Move the sidebar windows into a column and set settings
-		for i in range(len(g:wm_sidebar.windows))
-			call win_gotoid(g:wm_sidebar.windows[i])
-			wincmd J
-
-			setlocal nobuflisted
-			setlocal hidden
-			setlocal nonumber
-			setlocal winfixwidth
-			setlocal laststatus=0
-
-			if exists("g:wm_sidebar_color")
-				setlocal winhl=Normal:WmSidebarColor
-			endif
-		endfor
-
-		" Move the origional window to the right
-		call win_gotoid(windows_window)
-		wincmd L
-
-		" Create a blank window if a window wasn't created
-		if !exists("g:wm_sidebar.windows") || len(g:wm_sidebar.windows) < 1
-			vnew | wincmd H
-			let g:wm_sidebar.windows = [win_getid()]
-		endif
-		
-		" Figure out the size and resize the sidebar
-		call win_gotoid(g:wm_sidebar.windows[0])
-		if g:wm_sidebar.size > 1
-			let sidebar_size = g:wm_sidebar.size
-		else
-			let sidebar_size = &columns * g:wm_sidebar.size
-		endif
-		exec "vertical resize " . string(sidebar_size)
-	endif
-
-	" Replace the origional window with a blank one
-	call win_gotoid(windows_window)
-	let old_window_nr = winnr()
-	new | let windows_window = win_getid()
-	exec old_window_nr . "close"
-	let g:window_list = []
-	call s:LoadPane(g:wm_tab_layouts[g:tab], [1, 1])
-
-	" Set the sizes of all of the windows in the window list
-	for q in g:window_list " For each level of window
-		for r in q " For each individual window
-			call win_gotoid(r.winid)
-			exec "vertical resize " . string((&columns - sidebar_size) * r.size[0])
-			" Subtract 1 because of statusline of each window
-			exec "resize " . string(&lines * r.size[1] - 1)
-			setlocal winfixheight
-			setlocal winfixwidth
-
-			" Set it to the default window color
-			if exists("g:wm_window_color")
-				setlocal winhl=Normal:WmWindowColor
-			endif
-		endfor
-	endfor
-
-	if g:wm_sidebar.open
-		call win_gotoid(g:wm_sidebar.windows[0])
-		exec "vertical resize " . string(sidebar_size)
-	endif
-
-	" Return to the origional window
-	if g:wm_sidebar.focused
-		call win_gotoid(g:wm_sidebar.windows[0])
-	else
-		call win_gotoid(g:current_pane[g:tab].window)
-
-		" Set the color of the current window if a special color is specified
-		if exists("g:wm_current_color")
-			setlocal winhl=Normal:WmCurrentColor
-		endif
-	endif
-
-	" Remove any empty buffers that were created
-	let open_buffer_list = []
-	tabdo for i in range(1, winnr("$")) | call add(open_buffer_list, winbufnr(i)) | endfor
-	exec "norm! " . string(g:tab + 1) . "gt"
-
-	for i in range(1, bufnr("$"))
-		if bufname(i) == "" && index(open_buffer_list, i) == -1
-			silent! exec string(i) . "bdelete!"
-		endif
-	endfor
-
-	" Reenable autocommands
-	autocmd WinEnter * call s:WindowMoveEvent()
-	autocmd BufEnter * call s:NewBufferEvent()
-	autocmd TabEnter * call s:NewTabEvent()
-
-	if exists("g:wm_current_color")
-		autocmd BufEnter * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
-		autocmd BufLeave * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
-	endif
-endfunction
-" }}}
 " FUNCTION: s:Split(direction, after) {{{1
 function! s:Split(direction, after)
 	let pane = s:GetPane("window", win_getid())
@@ -231,11 +68,25 @@ function! s:Split(direction, after)
 		return
 	endif
 
-	let current_id = pane.id
-	let new_pane = {"layout":"w"}
+	" Create the split for the pane
+	if a:direction == "v"
+		let old_split_dir = &splitbelow
+		exec "set " . (a:after ? "" : "no") . "splitbelow"
+		new
+		exec "set " . (old_split_dir ? "" : "no") . "splitbelow"
+	else
+		let old_split_dir = &splitright
+		exec "set " . (a:after ? "" : "no") . "splitright"
+		vnew
+		exec "set " . (old_split_dir ? "" : "no") . "splitright"
+	endif
 
-	let g:current_pane[g:tab] = s:AddPane(new_pane, current_id, a:direction, a:after)
-	call s:Render()
+	let current_id = pane.id
+	let g:current_pane[g:tab] = s:AddPane({"layout":"w", "window":win_getid()}, current_id, a:direction, a:after)
+
+	" Set the sizes of the panes and return to the origional window
+	call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [1, 1], 1)
+	call win_gotoid(g:current_pane[g:tab].window)
 endfunction
 " }}}
 " FUNCTION: s:Close() {{{1
@@ -245,21 +96,29 @@ function! s:Close()
 		return
 	endif
 
+	let was_empty = bufname() == ""
 	let pane = s:GetPane("window", win_getid())
+	close!
+
+	if was_empty
+		call s:ClearEmpty()
+	endif
+
 	if pane == {} || len(pane.id) <= 1
-		call s:Render()
 		return
 	endif
 
 	let g:current_pane[g:tab] = s:RemovePane(pane.id)
-	call s:Render()
+
+	" Set the sizes of the panes and return to the origional window
+	call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [1, 1], 1)
+	call win_gotoid(g:current_pane[g:tab].window)
 endfunction
 " }}}
 " FUNCTION: s:Move(direction, value) {{{1
 function! s:Move(direction, value)
 	let pane = s:GetPane("window", win_getid())
-	if pane == {}
-		call s:Render()
+	if pane == {} || !has_key(pane, "id") || len(pane.id) <= 1
 		return
 	endif
 
@@ -301,16 +160,16 @@ function! s:Resize(direction, amount)
 	if index(g:wm_sidebar.windows, win_getid()) != -1
 		if g:wm_sidebar.size > 1
 			let g:wm_sidebar.size += 1.0 * &columns * a:amount
+			exec "vertical resize " . g:wm_sidebar.size
 		else
 			let g:wm_sidebar.size += a:amount
+			exec "vertical resize " . (&columns * g:wm_sidebar.size)
 		endif
-		call s:Render()
 		return
 	endif
 
 	let pane = s:GetPane("window", win_getid())
 	if pane == {}
-		call s:Render()
 		return
 	endif
 	let id = pane.id
@@ -336,7 +195,7 @@ function! s:Resize(direction, amount)
 		endif
 	endfor
 
-	call s:Render()
+	call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [1, 1], 1)
 endfunction
 " }}}
 
@@ -345,6 +204,7 @@ function! s:ToggleSidebarOpen()
 	if g:wm_sidebar.open " Disable the sidebar if it is already active
 		let g:wm_sidebar.open = 0
 		let g:wm_sidebar.focused = 0
+		let g:wm_sidebar.current = {}
 		let g:wm_sidebar.windows = []
 	else " Enable the sidebar if it is not already active
 		let g:wm_sidebar.open = 1
@@ -366,14 +226,14 @@ function! s:ToggleSidebarFocus()
 		let g:wm_sidebar.focused = 1
 	endif
 
-	call s:Render()
+	call win_gotoid(g:wm_sidebar.windows[0])
 endfunction
 " }}}
 " FUNCTION: s:OpenSidebar(name) {{{1
 function! s:OpenSidebar(name)
-	let g:check =0
-	if a:name != g:wm_sidebar.current.name
-		let g:check = 1
+	let g:wm_sidebar.open = 1
+	let g:wm_sidebar.focused = 1
+	if !exists("g:wm_sidebar.current.name") || a:name != g:wm_sidebar.current.name
 		for q in g:wm_sidebar.bars
 			let g:var = q
 			if has_key(q, "name") && q.name == a:name
@@ -381,11 +241,250 @@ function! s:OpenSidebar(name)
 				break
 			endif
 		endfor
+		call s:Render()
+	else
+		call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [1, 1], 1)
+	endif
+endfunction
+" }}}
+
+" ==============================================================================
+" Rendering functions
+" ==============================================================================
+" FUNCTION: s:Render() {{{1
+function! s:Render()
+	call s:DisableAutocommands()
+	let g:wm_tab_layouts[g:tab].size = 1
+
+	if exists("g:wm_sidebar_color")
+		exec "highlight WmSidebarColor ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
+		exec "highlight Normal ctermbg=" . g:wm_sidebar_color.cterm . " guibg=" . g:wm_sidebar_color.gui
+	endif
+	if exists("g:wm_window_color")
+		exec "highlight WmWindowColor ctermbg=" . g:wm_window_color.cterm . " guibg=" . g:wm_window_color.gui
+	endif
+	if exists("g:wm_current_color")
+		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
 	endif
 
-	let g:wm_sidebar.open = 1
-	let g:wm_sidebar.focused = 1
-	call s:Render()
+	" Close all windows except for the current one
+	wincmd L
+	while winnr("$") > 1
+		1close!
+	endwhile
+	let windows_window = win_getid()
+
+	" Load the sidebar
+	let s:sidebar_size = 0
+	let g:wm_sidebar.windows = []
+	if g:wm_sidebar.open
+		let s:sidebar_size = s:RenderSidebar()
+	endif
+
+	" Form the split layout
+	call win_gotoid(windows_window)
+	call s:LoadSplits(g:wm_tab_layouts[g:tab], 1)
+
+	" Set the sizes of all of the windows in the window list
+	call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [1, 1], 1)
+
+	" Redisable the autocommands
+	call s:DisableAutocommands()
+
+	" Resize the sidebar if necessary
+	if g:wm_sidebar.open
+		call win_gotoid(g:wm_sidebar.windows[0])
+		exec "vertical resize " . string(s:sidebar_size)
+		set winfixwidth
+	endif
+
+	" Return to the origional window
+	if g:wm_sidebar.focused
+		call win_gotoid(g:wm_sidebar.windows[0])
+	else
+		call win_gotoid(g:current_pane[g:tab].window)
+
+		" Set the color of the current window if a special color is specified
+		if exists("g:wm_current_color")
+			setlocal winhl=Normal:WmCurrentColor
+		endif
+	endif
+
+	" Remove any empty buffers that were created
+	call s:ClearEmpty()
+
+	if exists("g:wm_current_color")
+		autocmd BufEnter * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
+		autocmd BufLeave * silent! if win_getid() != g:wm_sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
+	endif
+
+	call s:EnableAutocommands()
+endfunction
+" }}}
+" FUNCTION: s:RenderSidebar() {{{1
+function! s:RenderSidebar()
+	" Save the current winid for later
+	let nonsidebar_window = win_getid()
+
+	" Run the command to open the sidebar
+	silent! exec g:wm_sidebar.current.command
+
+	" Get a list of window ids after opening the sidebar
+	let g:wm_sidebar.current.buffers = []
+	for i in range(1, winnr("$"))
+		let window_id = win_getid(i)
+
+		if window_id != nonsidebar_window
+			call add(g:wm_sidebar.windows, window_id)
+			call add(g:wm_sidebar.current.buffers, bufnr(win_id2win(window_id)))
+		endif
+	endfor
+
+	" Create a blank window if a window wasn't created
+	if !exists("g:wm_sidebar.windows") || len(g:wm_sidebar.windows) < 1
+		vnew
+		let g:wm_sidebar.windows = [win_getid()]
+	endif
+
+	" Move the sidebar windows into a column and set settings
+	for i in range(len(g:wm_sidebar.windows))
+		call win_gotoid(g:wm_sidebar.windows[i])
+		wincmd J
+
+		setlocal nobuflisted
+		setlocal hidden
+		setlocal nonumber
+		setlocal winfixwidth
+		setlocal laststatus=0
+
+		if exists("g:wm_sidebar_color")
+			setlocal winhl=Normal:WmSidebarColor
+		endif
+	endfor
+
+	" Move the origional window to the right
+	call win_gotoid(nonsidebar_window)
+	wincmd L
+
+	" Figure out the size and resize the sidebar
+	call win_gotoid(g:wm_sidebar.windows[0])
+	if g:wm_sidebar.size > 1
+		let s:sidebar_size = g:wm_sidebar.size
+	else
+		let s:sidebar_size = &columns * g:wm_sidebar.size
+	endif
+	exec "vertical resize " . string(s:sidebar_size)
+
+	return s:sidebar_size
+endfunction
+" }}}
+" FUNCTION: s:LoadSplits(pane, first) {{{1
+function! s:LoadSplits(pane, first)
+	if a:first
+		call s:DisableAutocommands()
+	endif
+
+	" Open a window
+	if a:pane["layout"] == "w"
+		" Open the correct buffer in the window if the buffer exists
+		if exists("a:pane.buffer") && index(range(1, bufnr("$")), a:pane.buffer) != -1
+			exec "buffer " . a:pane.buffer
+		endif
+
+		" Give the pane a window number if it doesn't have one already
+		let a:pane.window = win_getid()
+
+	else
+		" Set up the splits
+		let split_cmd = (a:pane.layout == "h") ? "vertical new" : "new"
+		let a:pane.children[0].window = win_getid()
+		for i in range(1, len(a:pane.children) - 1)
+			exec split_cmd
+			let a:pane.children[i].window = win_getid()
+		endfor
+
+		" Return to each split and set it up
+		for i in range(len(a:pane.children))
+			call win_gotoid(a:pane.children[i].window)
+			call s:LoadSplits(a:pane.children[i], 0)
+		endfor
+
+		if has_key(a:pane, "window")
+			call remove(a:pane, "window")
+		endif
+	endif
+
+	if a:first
+		call s:EnableAutocommands()
+	endif
+endfunction
+" }}}
+" FUNCTION: s:LoadPanes(pane, id, size, first) {{{1
+function! s:LoadPanes(pane, id, size, first)
+	let a:pane.id = a:id
+
+	if a:first
+		call s:DisableAutocommands()
+	endif
+
+	" Open a window
+	if a:pane["layout"] != "w"
+		" Set up the children
+		for i in range(len(a:pane.children))
+			" Figure out the new size
+			if a:size == []
+				let new_size = []
+			else
+				let size_index = a:pane.layout == "h" ? 0 : 1
+				let new_size = a:size[0:1]
+				let new_size[size_index] = 1.0 * a:size[size_index] * a:pane.children[i].size
+			endif
+
+			let new_id = a:id[0:-1]
+			call add(new_id, i)
+
+			" Go to the window and load it
+			call s:LoadPanes(a:pane.children[i], new_id, new_size, 0)
+		endfor
+
+	elseif a:size != []	
+		call win_gotoid(a:pane.window)
+
+		exec "vertical resize " . string((&columns - s:sidebar_size) * a:size[0])
+		" Subtract 1 because of statusline of each window
+		exec "resize " . string(&lines * a:size[1] - 1)
+
+		" Set it to the default window color
+		if exists("g:wm_window_color")
+			setlocal winhl=Normal:WmWindowColor
+		endif
+	endif
+
+	if a:first
+		if a:size != []
+			if g:wm_sidebar.focused
+				call win_gotoid(g:wm_sidebar.windows[0])
+			else
+				call win_gotoid(g:current_pane[g:tab].window)
+			endif
+		endif
+
+		call s:EnableAutocommands()
+	endif
+endfunction
+" }}}
+" FUNCTION: s:ClearEmpty() {{{1
+function! s:ClearEmpty()
+	" Clear unused empty buffers
+	let open_buffer_list = []
+	exec "tabdo for i in range(1, winnr('$')) | call add(open_buffer_list, winbufnr(i)) | endfor"
+	exec "norm! " . string(g:tab + 1) . "gt"
+
+	for i in range(1, bufnr("$"))
+		if bufname(i) == "" && index(open_buffer_list, i) == -1
+			silent! exec string(i) . "bdelete!"
+		endif
+	endfor
 endfunction
 " }}}
 
@@ -430,68 +529,6 @@ function! s:GetPane(datapoint, value)
 
 		return {}
 	endif
-endfunction
-" }}}
-" FUNCTION: s:LoadPane(pane, size) {{{1
-function! s:LoadPane(pane, size)
-	" Open a window
-	if a:pane["layout"] == "w"
-		" Open the correct buffer in the window if the buffer exists
-		if exists("a:pane.buffer") && index(range(1, bufnr("$")), a:pane.buffer) != -1
-			exec "buffer " . a:pane.buffer
-		endif
-
-		" Give the pane a window number if it doesn't have one already
-		let a:pane.window = win_getid()
-
-		" Add the current window to the list of windows to be resized later
-		while len(g:window_list) < len(a:pane.id)
-			call add(g:window_list, [])
-		endwhile
-		call add(g:window_list[len(a:pane.id) - 1], {"winid":(a:pane.window), "size":(a:size)})
-
-	else
-		" Set up the splits
-		let split_cmd = (a:pane.layout == "h") ? "vertical new" : "new"
-		let a:pane.children[0].window = win_getid()
-		for i in range(1, len(a:pane.children) - 1)
-			exec split_cmd
-			let a:pane.children[i].window = win_getid()
-		endfor
-
-		" Return to each split and set it up
-		for i in range(len(a:pane.children))
-			" Figure out the new size
-			let size_index = a:pane.layout == "h" ? 0 : 1
-			let new_size = a:size[0:1]
-			let new_size[size_index] = 1.0 * a:size[size_index] * a:pane.children[i].size
-
-			" Go to the window and load it
-			call win_gotoid(a:pane.children[i].window)
-			call s:LoadPane(a:pane.children[i], new_size)
-		endfor
-
-		if has_key(a:pane, "window")
-			call remove(a:pane, "window")
-		endif
-	endif
-endfunction
-" }}}
-" FUNCTION: s:GenerateIds(pane, id) {{{1
-function s:GenerateIds(pane, id)
-	let a:pane.id = a:id
-
-	if !has_key(a:pane, "children")
-		return a:pane
-	endif
-
-	let children = a:pane.children
-	for i in range(len(children))
-		let new_id = a:id + [i]
-
-		let children[i] = s:GenerateIds(children[i], new_id)
-	endfor
-	return a:pane
 endfunction
 " }}}
 " FUNCTION: s:AddPane(new_pane, location_id, direction, after) {{{1
@@ -554,7 +591,7 @@ function! s:AddPane(new_pane, location_id, direction, after)
 		let new_parent.children[1].size = 0.5
 	endif
 
-	let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+	call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [], 1)
 	return a:new_pane
 endfunction
 " }}}
@@ -573,18 +610,29 @@ function! s:RemovePane(id)
 		call s:ReplacePane(replacement, parent.id)
 		let new_pane = replacement
 
-		let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+		call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [], 1)
 
 		" If the dissolved split now has the same layout as its parent
 		let new_parent = s:GetPane("id", a:id[0:-2])
 		if len(a:id) >= 3 && new_parent.layout == s:GetPane("id", a:id[0:-3]).layout
 			let super_parent = s:GetPane("id", a:id[0:-3])
+			" Put the first pane that should be integrated into the super parent in
+			" the place of the entire list
 			call s:ReplacePane(new_parent.children[0], new_parent.id)
 
-			let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+			" Generate new ids
+			call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [], 1)
 
+			" One by one add the rest of the panes that need to be integrated into
+			" the super parent after the one that was added before
 			for i in range(1, len(new_parent.children) - 1)
 				call s:AddPane(new_parent.children[i], new_parent.children[0].id, super_parent.layout, 1)
+			endfor
+
+			" Set all the sizes to be equal
+			let new_size_ratio = 1.0 / len(super_parent.children)
+			for q in super_parent.children
+				let q.size = new_size_ratio
 			endfor
 		endif
 
@@ -600,7 +648,7 @@ function! s:RemovePane(id)
 		endif
 	endif
 
-	let g:wm_tab_layouts[g:tab] = s:GenerateIds(g:wm_tab_layouts[g:tab], [0])
+	call s:LoadPanes(g:wm_tab_layouts[g:tab], [0], [], 1)
 
 	let new_window_id = new_pane.id[0:-1]
 	while has_key(s:GetPane("id", new_window_id), "children")
@@ -632,11 +680,11 @@ endfunction
 " FUNCTION: s:WindowMoveEvent() {{{1
 function! s:WindowMoveEvent()
 	silent! if index(g:wm_sidebar.windows, win_getid()) != -1
-		let g:wm_sidebar.focused = 1
+	let g:wm_sidebar.focused = 1
 	silent! elseif s:GetPane("window", win_getid()) != {}
-		let g:wm_sidebar.focused = 0 
-		let g:current_pane[g:tab] = s:GetPane("window", win_getid())
-	endif
+	let g:wm_sidebar.focused = 0 
+	let g:current_pane[g:tab] = s:GetPane("window", win_getid())
+endif
 endfunction
 " }}}
 " FUNCTION: s:NewBufferEvent() {{{1
@@ -652,9 +700,9 @@ function! s:NewBufferEvent()
 		endif
 
 		silent! if g:current_pane[g:tab].window == win_getid()
-			let g:current_pane[g:tab].buffer = bufnr()
-		endif
+		let g:current_pane[g:tab].buffer = bufnr()
 	endif
+endif
 
 endfunction
 " }}}
@@ -669,5 +717,20 @@ function! s:NewTabEvent()
 	endwhile 
 
 	call s:Render()
+endfunction
+" }}}
+
+" FUNCTION: s:DisableAutocommands() {{{1
+function! s:DisableAutocommands()
+	autocmd! WinEnter
+	autocmd! BufEnter
+	autocmd! TabEnter
+endfunction
+" }}}
+" FUNCTION: s:EnableAutocommands() {{{1
+function! s:EnableAutocommands()
+	autocmd WinEnter * call s:WindowMoveEvent()
+	autocmd BufEnter * call s:NewBufferEvent()
+	autocmd TabEnter * call s:NewTabEvent()
 endfunction
 " }}}
