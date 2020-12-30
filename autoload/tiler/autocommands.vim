@@ -4,20 +4,20 @@
 " FUNCTION: s:WindowMoveEvent() {{{1
 function! s:WindowMoveEvent()
 	" If the window is part of the sidebar, make the sidebar focussed
-	if has_key(g:wm#sidebar, 'windows') && index(g:wm#sidebar.windows, win_getid()) != -1
-		let g:wm#sidebar.focused = 1
+	if has_key(g:tiler#sidebar, 'windows') && index(g:tiler#sidebar.windows, win_getid()) != -1
+		let g:tiler#sidebar.focused = 1
 	
 	" If the window is part of the window layout
 	elseif tiler#api#GetPane("window", win_getid()) != {}
-		let g:wm#sidebar.focused = 0
+		let g:tiler#sidebar.focused = 0
 		call tiler#api#SetCurrent(tiler#api#GetPane("window", win_getid()))
 	endif
 endfunction
 " }}}
 " FUNCTION: s:NewBufferEvent() {{{1
 function! s:NewBufferEvent()
-	if g:wm#sidebar.focused
-		if exists("g:wm#sidebar_color")
+	if g:tiler#sidebar.focused
+		if exists("g:tiler#sidebar_color")
 			setlocal winhl=Normal:WmSidebarColor
 		endif
 
@@ -45,9 +45,9 @@ endfunction
 " FUNCTION: tiler#autocommands#EnableAutocommands() {{{1
 function! tiler#autocommands#EnableAutocommands()
 	augroup tiler
-		autocmd WinEnter * call s:WindowMoveEvent()
-		autocmd BufEnter * call s:NewBufferEvent()
-		autocmd VimResized * call tiler#display#Render()
+		autocmd WinEnter * if tiler#api#IsEnabled() | call s:WindowMoveEvent() | endif
+		autocmd BufEnter * if tiler#api#IsEnabled() | call s:NewBufferEvent() | endif
+		autocmd VimResized * if tiler#api#IsEnabled() | call tiler#display#Render() | endif
 	augroup END
 endfunction
 " }}}

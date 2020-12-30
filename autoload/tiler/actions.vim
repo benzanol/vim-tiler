@@ -3,6 +3,12 @@
 " ==============================================================================
 " FUNCTION: tiler#actions#Split(direction, after) {{{1
 function! tiler#actions#Split(direction, after)
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
+	endif
+
 	let pane = tiler#api#GetPane("window", win_getid())
 	if pane == {}
 		call tiler#display#Render()
@@ -26,13 +32,19 @@ function! tiler#actions#Split(direction, after)
 	call tiler#api#SetCurrent(tiler#layout#AddPane({"layout":"w", "window":win_getid()}, current_id, a:direction, a:after))
 
 	" Set the sizes of the panes and return to the origional window
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:wm#always_resize ? [1, 1] : [], 1)
+	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
 	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
 " }}}
 " FUNCTION: tiler#actions#Close() {{{1
 function! tiler#actions#Close()
-	if index(g:wm#sidebar.windows, win_getid()) != -1
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
+	endif
+
+	if index(g:tiler#sidebar.windows, win_getid()) != -1
 		call tiler#sidebar#ToggleSidebarOpen()
 		return
 	endif
@@ -40,15 +52,15 @@ function! tiler#actions#Close()
 	let window = winnr()
 	let was_empty = bufname() == ""
 	let pane = tiler#api#GetPane("window", win_getid())
-	
-	if g:wm#sidebar.focused
-		call win_gotoid(g:wm#sidebar.windows[0])
+
+	if g:tiler#sidebar.focused
+		call win_gotoid(g:tiler#sidebar.windows[0])
 	else
 		call win_gotoid(tiler#api#GetCurrent().window)
 	endif
-	
+
 	exec 'silent!' window 'close!'
-	
+
 	if was_empty
 		call tiler#display#ClearEmpty()
 	endif
@@ -60,12 +72,18 @@ function! tiler#actions#Close()
 	call tiler#api#SetCurrent(tiler#layout#RemovePane(pane.id))
 
 	" Set the sizes of the panes and return to the origional window
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:wm#always_resize ? [1, 1] : [], 1)
+	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
 	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
 " }}}
 " FUNCTION: tiler#actions#Move(direction, value) {{{1
 function! tiler#actions#Move(direction, value)
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
+	endif
+
 	let pane = tiler#api#GetPane("window", win_getid())
 	if pane == {} || !has_key(pane, "id") || len(pane.id) <= 1
 		return
@@ -106,18 +124,24 @@ endfunction
 " }}}
 " FUNCTION: tiler#actions#Resize(direction, amount) {{{1
 function! tiler#actions#Resize(direction, amount)
-	if index(g:wm#sidebar.windows, win_getid()) > -1
-		if g:wm#sidebar.size > 1
-			let g:wm#sidebar.size += 1.0 * &columns * a:amount
-			exec "vertical resize " . string(g:wm#sidebar.size)
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
+	endif
+
+	if index(g:tiler#sidebar.windows, win_getid()) > -1
+		if g:tiler#sidebar.size > 1
+			let g:tiler#sidebar.size += 1.0 * &columns * a:amount
+			exec "vertical resize " . string(g:tiler#sidebar.size)
 		else
-			let g:wm#sidebar.size += a:amount
-			exec "vertical resize " . string(&columns * g:wm#sidebar.size)
+			let g:tiler#sidebar.size += a:amount
+			exec "vertical resize " . string(&columns * g:tiler#sidebar.size)
 		endif
 		return
 	endif
 
-	if !g:wm#always_resize
+	if !g:tiler#always_resize
 		if a:direction == "h"
 			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
 		else

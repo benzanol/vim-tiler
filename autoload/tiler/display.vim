@@ -7,9 +7,9 @@ function! tiler#display#Render()
 	let layout = tiler#api#GetLayout()
 	let layout.size = 1
 
-	if exists("g:wm#sidebar_color")
-		exec "highlight WmSidebarColor ctermbg=" . g:wm#sidebar_color.cterm . " guibg=" . g:wm#sidebar_color.gui
-		exec "highlight Normal ctermbg=" . g:wm#sidebar_color.cterm . " guibg=" . g:wm#sidebar_color.gui
+	if exists("g:tiler#sidebar_color")
+		exec "highlight WmSidebarColor ctermbg=" . g:tiler#sidebar_color.cterm . " guibg=" . g:tiler#sidebar_color.gui
+		exec "highlight Normal ctermbg=" . g:tiler#sidebar_color.cterm . " guibg=" . g:tiler#sidebar_color.gui
 	endif
 	if exists("g:wm_window_color")
 		exec "highlight WmWindowColor ctermbg=" . g:wm_window_color.cterm . " guibg=" . g:wm_window_color.gui
@@ -27,8 +27,8 @@ function! tiler#display#Render()
 
 	" Load the sidebar
 	let s:sidebar_size = 0
-	let g:wm#sidebar.windows = []
-	if g:wm#sidebar.open
+	let g:tiler#sidebar.windows = []
+	if g:tiler#sidebar.open
 		let s:sidebar_size = tiler#display#RenderSidebar()
 	endif
 
@@ -43,15 +43,15 @@ function! tiler#display#Render()
 	call tiler#autocommands#DisableAutocommands()
 
 	" Resize the sidebar if necessary
-	if g:wm#sidebar.open
-		call win_gotoid(g:wm#sidebar.windows[0])
+	if g:tiler#sidebar.open
+		call win_gotoid(g:tiler#sidebar.windows[0])
 		exec "vertical resize " . string(s:sidebar_size)
 		set winfixwidth
 	endif
 
 	" Return to the origional window
-	if g:wm#sidebar.focused
-		call win_gotoid(g:wm#sidebar.windows[0])
+	if g:tiler#sidebar.focused
+		call win_gotoid(g:tiler#sidebar.windows[0])
 	else
 		call win_gotoid(tiler#api#GetCurrent().window)
 
@@ -65,8 +65,8 @@ function! tiler#display#Render()
 	call tiler#display#ClearEmpty()
 
 	if exists("g:wm_current_color")
-		autocmd BufEnter * silent! if win_getid() != g:wm#sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
-		autocmd BufLeave * silent! if win_getid() != g:wm#sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
+		autocmd BufEnter * silent! if win_getid() != g:tiler#sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
+		autocmd BufLeave * silent! if win_getid() != g:tiler#sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
 	endif
 
 	call tiler#autocommands#EnableAutocommands()
@@ -78,28 +78,28 @@ function! tiler#display#RenderSidebar()
 	let nonsidebar_window = win_getid()
 
 	" Run the command to open the sidebar
-	silent! exec g:wm#sidebar.current.command
+	silent! exec g:tiler#sidebar.current.command
 
 	" Get a list of window ids after opening the sidebar
-	let g:wm#sidebar.current.buffers = []
+	let g:tiler#sidebar.current.buffers = []
 	for i in range(1, winnr("$"))
 		let window_id = win_getid(i)
 
 		if window_id != nonsidebar_window
-			call add(g:wm#sidebar.windows, window_id)
-			call add(g:wm#sidebar.current.buffers, bufnr(win_id2win(window_id)))
+			call add(g:tiler#sidebar.windows, window_id)
+			call add(g:tiler#sidebar.current.buffers, bufnr(win_id2win(window_id)))
 		endif
 	endfor
 
 	" Create a blank window if a window wasn't created
-	if !exists("g:wm#sidebar.windows") || len(g:wm#sidebar.windows) < 1
+	if !exists("g:tiler#sidebar.windows") || len(g:tiler#sidebar.windows) < 1
 		vnew
-		let g:wm#sidebar.windows = [win_getid()]
+		let g:tiler#sidebar.windows = [win_getid()]
 	endif
 
 	" Move the sidebar windows into a column and set settings
-	for i in range(len(g:wm#sidebar.windows))
-		call win_gotoid(g:wm#sidebar.windows[i])
+	for i in range(len(g:tiler#sidebar.windows))
+		call win_gotoid(g:tiler#sidebar.windows[i])
 		wincmd J
 
 		setlocal nobuflisted
@@ -108,21 +108,25 @@ function! tiler#display#RenderSidebar()
 		setlocal winfixwidth
 		setlocal laststatus=0
 
-		if exists("g:wm#sidebar_color")
+		if exists("g:tiler#sidebar_color")
 			setlocal winhl=Normal:WmSidebarColor
 		endif
 	endfor
 
 	" Move the origional window to the right
 	call win_gotoid(nonsidebar_window)
-	wincmd L
+	if g:tiler#sidebar.side == "right"
+		wincmd H
+	else
+		wincmd L
+	endif
 
 	" Figure out the size and resize the sidebar
-	call win_gotoid(g:wm#sidebar.windows[0])
-	if g:wm#sidebar.size > 1
-		let s:sidebar_size = g:wm#sidebar.size
+	call win_gotoid(g:tiler#sidebar.windows[0])
+	if g:tiler#sidebar.size > 1
+		let s:sidebar_size = g:tiler#sidebar.size
 	else
-		let s:sidebar_size = &columns * g:wm#sidebar.size
+		let s:sidebar_size = &columns * g:tiler#sidebar.size
 	endif
 	exec "vertical resize " . string(s:sidebar_size)
 
@@ -213,8 +217,8 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 
 	if a:first
 		if a:size != []
-			if g:wm#sidebar.focused
-				call win_gotoid(g:wm#sidebar.windows[0])
+			if g:tiler#sidebar.focused
+				call win_gotoid(g:tiler#sidebar.windows[0])
 			else
 				call win_gotoid(tiler#api#GetCurrent().window)
 			endif

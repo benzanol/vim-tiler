@@ -3,7 +3,7 @@
 " ==============================================================================
 "FUNCTION: tiler#api#IsEnabled() {{{1
 function! tiler#api#IsEnabled()
-	if has_key(g:tiler#layouts, tabpagenr())
+	if exists('g:tiler#layouts') && has_key(g:tiler#layouts, tabpagenr())
 		return 1
 	else
 		return 0
@@ -30,6 +30,13 @@ function! tiler#api#AddLayout()
 		return 0
 	else
 		let g:tiler#layouts[tabpagenr()] = tiler#api#GetNewLayout()
+	endif
+endfunction
+" }}}
+"FUNCTION: tiler#api#RemoveLayout() {{{1
+function! tiler#api#RemoveLayout()
+	if has_key(g:tiler#layouts, tabpagenr())
+		call remove(g:tiler#layouts, tabpagenr())
 	endif
 endfunction
 " }}}
@@ -77,7 +84,7 @@ endfunction
 " FUNCTION: tiler#api#GetPane(datapoint, value) {{{1
 function! tiler#api#GetPane(datapoint, value)
 	let layout = tiler#api#GetLayout()
-	
+
 	if a:datapoint == "id"
 		if a:value == [0]
 			return layout

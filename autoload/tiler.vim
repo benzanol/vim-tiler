@@ -1,36 +1,17 @@
 " ==============================================================================
 " Initialization functions
 " ==============================================================================
-" FUNCTION: tiler#TabEnable() {{{1
-function! tiler#TabEnable()
-	if !exists('g:tiler#loaded')
-		let g:tiler#loaded = 1
-		let g:tiler#layouts = {}
-		let g:tiler#currents = {}
-	endif
+"FUNCTION: tiler#Initialize() {{{1
+function! tiler#Initialize()
+	let g:tiler#loaded = 1
+	let g:tiler#tiler#always_resize = 1
+	
+	let g:tiler#layouts = {}
+	let g:tiler#currents = {}
+	
+	let g:tiler#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
+	let g:tiler#sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
 
-	if tiler#api#IsEnabled()
-		return 0
-	endif
-
-	call tiler#api#AddLayout()
-	call tiler#api#SetCurrent(tiler#api#GetLayout())
-
-	let g:wm#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
-	let g:wm#sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
-	let g:wm#always_resize = 1
-
-	call s:InitializeCommands()
-
-	call tiler#autocommands#EnableAutocommands()
-
-	call tiler#display#Render()
-
-	return 1
-endfunction
-" }}}
-" FUNCTION: s:InitializeCommands() {{{1
-function! s:InitializeCommands()
 	command! WindowClose call tiler#actions#Close()
 	command! WindowRender call tiler#display#Render()
 
@@ -51,5 +32,60 @@ function! s:InitializeCommands()
 	command! SidebarToggleOpen call tiler#sidebar#ToggleSidebarOpen()
 	command! SidebarToggleFocus call tiler#sidebar#ToggleSidebarFocus()
 	command! -nargs=1 SidebarOpen call tiler#sidebar#OpenSidebar("<args>")
+endfunction " }}}
+
+" FUNCTION: tiler#TabEnable() {{{1
+function! tiler#TabEnable()
+	if !exists('g:tiler#loaded')
+		let g:tiler#loaded = 1
+		call tiler#Initialize()
+	endif
+
+	if tiler#api#IsEnabled()
+		return 0
+	endif
+
+	call tiler#api#AddLayout()
+	call tiler#api#SetCurrent(tiler#api#GetLayout())
+
+	call tiler#autocommands#EnableAutocommands()
+	call tiler#display#Render()
+
+	return 1
+endfunction
+" }}}
+" FUNCTION: tiler#GlobalEnable() {{{1
+function! tiler#GlobalEnable()
+	call tiler#TabEnable()
+
+	augroup tiler_enable
+		autocmd TabNew * call tiler#TabEnable()
+	augroup END
+
+	return 1
+endfunction
+" }}}
+
+" FUNCTION: tiler#TabDisable() {{{1
+function! tiler#TabDisable()
+	if !tiler#api#IsEnabled()
+		return 0
+	endif
+
+	call tiler#api#RemoveLayout()
+
+	return 1
+endfunction
+" }}}
+" FUNCTION: tiler#GlobalDisable() {{{1
+function! tiler#GlobalDisable()
+	augroup tiler_enable
+		autocmd!
+	augroup END
+
+	let g:tiler#layouts = {}
+	let g:tiler#currents = {}
+
+	return 1
 endfunction
 " }}}

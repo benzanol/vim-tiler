@@ -3,14 +3,20 @@
 " ==============================================================================
 " FUNCTION: tiler#sidebar#ToggleSidebarOpen() {{{1
 function! tiler#sidebar#ToggleSidebarOpen()
-	if g:wm#sidebar.open " Disable the sidebar if it is already active
-		let g:wm#sidebar.open = 0
-		let g:wm#sidebar.focused = 0
-		let g:wm#sidebar.current = {}
-		let g:wm#sidebar.windows = []
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
+	endif
+
+	if g:tiler#sidebar.open " Disable the sidebar if it is already active
+		let g:tiler#sidebar.open = 0
+		let g:tiler#sidebar.focused = 0
+		let g:tiler#sidebar.current = {}
+		let g:tiler#sidebar.windows = []
 	else " Enable the sidebar if it is not already active
-		let g:wm#sidebar.open = 1
-		let g:wm#sidebar.focused = 1 
+		let g:tiler#sidebar.open = 1
+		let g:tiler#sidebar.focused = 1 
 	endif
 
 	call tiler#display#Render()
@@ -18,33 +24,51 @@ endfunction
 " }}}
 " FUNCTION: tiler#sidebar#ToggleSidebarFocus() {{{1
 function! tiler#sidebar#ToggleSidebarFocus()
-	if !g:wm#sidebar.open
-		call tiler#sidebar#ToggleSidebarOpen()
-
-	elseif g:wm#sidebar.focused
-		let g:wm#sidebar.focused = 0
-
-	else
-		let g:wm#sidebar.focused = 1
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
 	endif
 
-	call win_gotoid(g:wm#sidebar.windows[0])
+	if !g:tiler#sidebar.open
+		call tiler#sidebar#ToggleSidebarOpen()
+
+	elseif g:tiler#sidebar.focused
+		let g:tiler#sidebar.focused = 0
+
+	else
+		let g:tiler#sidebar.focused = 1
+	endif
+
+	call win_gotoid(g:tiler#sidebar.windows[0])
 endfunction
 " }}}
 " FUNCTION: tiler#sidebar#OpenSidebar(name) {{{1
 function! tiler#sidebar#OpenSidebar(name)
-	let g:wm#sidebar.open = 1
-	let g:wm#sidebar.focused = 1
-	if !exists("g:wm#sidebar.current.name") || a:name != g:wm#sidebar.current.name
-		for q in g:wm#sidebar.bars
+	" Exit if not currently active
+	if !tiler#api#IsEnabled()
+		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		return
+	endif
+
+	let g:tiler#sidebar.open = 1
+	let g:tiler#sidebar.focused = 1
+	if !exists("g:tiler#sidebar.current.name") || a:name != g:tiler#sidebar.current.name
+		for q in g:tiler#sidebar.bars
 			if has_key(q, "name") && q.name == a:name
-				let g:wm#sidebar.current = q
+				let g:tiler#sidebar.current = q
 				break
 			endif
 		endfor
 		call tiler#display#Render()
 	else
-		call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:wm#always_resize ? [1, 1] : [], 1)
+		call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
 	endif
+endfunction
+" }}}
+
+" FUNCTION: tiler#sidebar#AddNew(name, command) {{{1
+function! tiler#sidebar#AddNew(name, command)
+	call add(g:tiler#sidebar.bars, {'name':a:name, 'command':a:command})
 endfunction
 " }}}
