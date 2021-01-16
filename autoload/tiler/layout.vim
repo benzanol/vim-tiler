@@ -61,7 +61,7 @@ function! tiler#layout#AddPane(new_pane, location_id, direction, after)
 		let new_parent.children[1].size = 0.5
 	endif
 
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [], 1)
+	call tiler#display#LoadLayout(-1)
 	return a:new_pane
 endfunction
 " }}}
@@ -80,7 +80,8 @@ function! tiler#layout#RemovePane(id)
 		call tiler#layout#ReplacePane(replacement, parent.id)
 		let new_pane = replacement
 
-		call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [], 1)
+		" Load ids
+	call tiler#display#LoadLayout(0)
 
 		" If the dissolved split now has the same layout as its parent
 		let new_parent = tiler#api#GetPane("id", a:id[0:-2])
@@ -91,7 +92,7 @@ function! tiler#layout#RemovePane(id)
 			call tiler#layout#ReplacePane(new_parent.children[0], new_parent.id)
 
 			" Generate new ids
-			call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [], 1)
+	call tiler#display#LoadLayout(0)
 
 			" One by one add the rest of the panes that need to be integrated into
 			" the super parent after the one that was added before
@@ -118,7 +119,8 @@ function! tiler#layout#RemovePane(id)
 		endif
 	endif
 
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [], 1)
+	" Load ids
+	call tiler#display#LoadLayout(0)
 
 	let new_window_id = new_pane.id[0:-1]
 	while has_key(tiler#api#GetPane("id", new_window_id), "children")

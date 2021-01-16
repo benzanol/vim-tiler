@@ -1,7 +1,7 @@
 " ==============================================================================
 " User level actions
 " ==============================================================================
-" FUNCTION: tiler#actions#Split(direction, after) 
+" FUNCTION: tiler#actions#Split(direction, after) {{{1
 function! tiler#actions#Split(direction, after)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -32,11 +32,11 @@ function! tiler#actions#Split(direction, after)
 	call tiler#api#SetCurrent(tiler#layout#AddPane({"layout":"w", "window":win_getid()}, current_id, a:direction, a:after))
 
 	" Set the sizes of the panes and return to the origional window
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
+	call tiler#display#LoadLayout(-1)
 	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
-" 
-" FUNCTION: tiler#actions#Close() 
+" }}}
+" FUNCTION: tiler#actions#Close() {{{1
 function! tiler#actions#Close()
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -72,11 +72,11 @@ function! tiler#actions#Close()
 	call tiler#api#SetCurrent(tiler#layout#RemovePane(pane.id))
 
 	" Set the sizes of the panes and return to the origional window
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
+	call tiler#display#LoadLayout(-1)
 	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
-" 
-" FUNCTION: tiler#actions#Move(direction, value) 
+" }}}
+" FUNCTION: tiler#actions#Move(direction, value) {{{1
 function! tiler#actions#Move(direction, value)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -121,8 +121,8 @@ function! tiler#actions#Move(direction, value)
 	call tiler#display#Render()
 	call win_gotoid(pane.window)
 endfunction
-" 
-" FUNCTION: tiler#actions#Resize(direction, amount) 
+" }}}
+" FUNCTION: tiler#actions#Resize(direction, amount) {{{1
 function! tiler#actions#Resize(direction, amount)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -130,10 +130,18 @@ function! tiler#actions#Resize(direction, amount)
 		return
 	endif
 
-	if index(g:tiler#sidebar.windows, win_getid()) > -1
+	" If the current window is part of the sidebar
+	if index(g:tiler#sidebar.windows, win_getid()) != -1
+		" Reset the size to 0 if it is bugged
+		if g:tiler#sidebar.size < 0
+			let g:tiler#sidebar.size = 0
+		endif
+
+		" If the size is in terms of pixels
 		if g:tiler#sidebar.size > 1
 			let g:tiler#sidebar.size += 1.0 * &columns * a:amount
 			exec "vertical resize " . string(g:tiler#sidebar.size)
+			" If the size is in terms of a percent
 		else
 			let g:tiler#sidebar.size += a:amount
 			exec "vertical resize " . string(&columns * g:tiler#sidebar.size)
@@ -141,6 +149,7 @@ function! tiler#actions#Resize(direction, amount)
 		return
 	endif
 
+	" Manualy resize the window
 	if !g:tiler#always_resize
 		if a:direction == "h"
 			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
@@ -150,15 +159,18 @@ function! tiler#actions#Resize(direction, amount)
 		return
 	endif
 
+	" Return if the current window is not part of the list
 	let pane = tiler#api#GetPane("window", win_getid())
 	if pane == {}
 		return
 	endif
 	let id = pane.id
 
+	" If it is not a top level window
 	if len(id) >= 2 && tiler#api#GetPane("id", id[0:-2]).layout == a:direction
 		let parent = tiler#api#GetPane("id", id[0:-2])
 		let pane = tiler#api#GetPane("id", id)
+		" If the parent is not a top level window
 	elseif len(id) >= 3
 		let pane = tiler#api#GetPane("id", id[0:-2])
 		let parent = tiler#api#GetPane("id", id[0:-3])
@@ -174,6 +186,6 @@ function! tiler#actions#Resize(direction, amount)
 		endif
 	endfor
 
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [1, 1], 1)
+	call tiler#display#LoadLayout(1)
 endfunction
-" 
+" }}}

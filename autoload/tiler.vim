@@ -3,17 +3,19 @@
 " ==============================================================================
 "FUNCTION: tiler#Initialize() {{{1
 function! tiler#Initialize()
+	" Initialize variables
 	let g:tiler#loaded = 1
 	let g:tiler#always_resize = 1
-	
+
 	let g:tiler#layouts = {}
 	let g:tiler#currents = {}
-	
+
 	let g:tiler#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
 	let g:tiler#sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
-	
+
 	let g:tiler#inactive_message = "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
 
+	" Initialize commands
 	command! WindowClose call tiler#actions#Close()
 	command! WindowRender call tiler#display#Render()
 
@@ -34,6 +36,8 @@ function! tiler#Initialize()
 	command! SidebarToggleOpen call tiler#sidebar#ToggleSidebarOpen()
 	command! SidebarToggleFocus call tiler#sidebar#ToggleSidebarFocus()
 	command! -nargs=1 SidebarOpen call tiler#sidebar#OpenSidebar("<args>")
+
+	call tiler#autocommands#Enable()
 endfunction " }}}
 
 " FUNCTION: tiler#TabEnable() {{{1
@@ -50,7 +54,7 @@ function! tiler#TabEnable()
 	call tiler#api#AddLayout()
 	call tiler#api#SetCurrent(tiler#api#GetLayout())
 
-	call tiler#autocommands#EnableAutocommands()
+	call tiler#autocommands#Enable()
 	call tiler#display#Render()
 
 	return 1

@@ -3,20 +3,9 @@
 " ==============================================================================
 " FUNCTION: tiler#display#Render() {{{1
 function! tiler#display#Render()
-	call tiler#autocommands#DisableAutocommands()
+	call tiler#autocommands#Disable()
 	let layout = tiler#api#GetLayout()
 	let layout.size = 1
-
-	if exists("g:tiler#sidebar_color")
-		exec "highlight WmSidebarColor ctermbg=" . g:tiler#sidebar_color.cterm . " guibg=" . g:tiler#sidebar_color.gui
-		exec "highlight Normal ctermbg=" . g:tiler#sidebar_color.cterm . " guibg=" . g:tiler#sidebar_color.gui
-	endif
-	if exists("g:wm_window_color")
-		exec "highlight WmWindowColor ctermbg=" . g:wm_window_color.cterm . " guibg=" . g:wm_window_color.gui
-	endif
-	if exists("g:wm_current_color")
-		exec "highlight WmCurrentColor ctermbg=" . g:wm_current_color.cterm . " guibg=" . g:wm_current_color.gui
-	endif
 
 	" Close all windows except for the current one
 	wincmd L
@@ -37,10 +26,10 @@ function! tiler#display#Render()
 	call tiler#display#LoadSplits(tiler#api#GetLayout(), 1)
 
 	" Set the sizes of all of the windows in the window list
-	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [1, 1], 1)
+	call tiler#display#LoadLayout(1)
 
 	" Redisable the autocommands
-	call tiler#autocommands#DisableAutocommands()
+	call tiler#autocommands#Disable()
 
 	" Resize the sidebar if necessary
 	if g:tiler#sidebar.open
@@ -56,20 +45,15 @@ function! tiler#display#Render()
 		call win_gotoid(tiler#api#GetCurrent().window)
 
 		" Set the color of the current window if a special color is specified
-		if exists("g:wm_current_color")
-			setlocal winhl=Normal:WmCurrentColor
+		if exists("g:tiler#current_color")
+			setlocal winhl=Normal:TilerCurrentColor
 		endif
 	endif
 
 	" Remove any empty buffers that were created
 	call tiler#display#ClearEmpty()
 
-	if exists("g:wm_current_color")
-		autocmd BufEnter * silent! if win_getid() != g:tiler#sidebar.window | setlocal winhl=Normal:WmCurrentColor | endif
-		autocmd BufLeave * silent! if win_getid() != g:tiler#sidebar.window | setlocal winhl=Normal:WmWindowColor | endif
-	endif
-
-	call tiler#autocommands#EnableAutocommands()
+	call tiler#autocommands#Enable()
 endfunction
 " }}}
 " FUNCTION: tiler#display#RenderSidebar() {{{1
@@ -108,8 +92,8 @@ function! tiler#display#RenderSidebar()
 		setlocal winfixwidth
 		setlocal laststatus=0
 
-		if exists("g:tiler#sidebar_color")
-			setlocal winhl=Normal:WmSidebarColor
+		if exists("g:tiler#colors#sidebar")
+			setlocal winhl=Normal:TilerSidebarColor
 		endif
 	endfor
 
@@ -133,10 +117,11 @@ function! tiler#display#RenderSidebar()
 	return s:sidebar_size
 endfunction
 " }}}
+
 " FUNCTION: tiler#display#LoadSplits(pane, first) {{{1
 function! tiler#display#LoadSplits(pane, first)
 	if a:first
-		call tiler#autocommands#DisableAutocommands()
+		call tiler#autocommands#Disable()
 	endif
 
 	" Open a window
@@ -170,7 +155,7 @@ function! tiler#display#LoadSplits(pane, first)
 	endif
 
 	if a:first
-		call tiler#autocommands#EnableAutocommands()
+		call tiler#autocommands#Enable()
 	endif
 endfunction
 " }}}
@@ -178,8 +163,10 @@ endfunction
 function! tiler#display#LoadPanes(pane, id, size, first)
 	let a:pane.id = a:id
 
+	" Disable the autocommands so that they aren't triggered everytime a new
+	" split is created
 	if a:first
-		call tiler#autocommands#DisableAutocommands()
+		call tiler#autocommands#Disable()
 	endif
 
 	" Open a window
@@ -210,24 +197,48 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 		exec "resize " . string(&lines * a:size[1] - 1)
 
 		" Set it to the default window color
-		if exists("g:wm_window_color")
-			setlocal winhl=Normal:WmWindowColor
+		if exists("g:tiler#colors#window")
+			setlocal winhl=Normal:TilerWindowColor
 		endif
 	endif
 
 	if a:first
 		if a:size != []
 			if g:tiler#sidebar.focused
+				" Return to the sidebar
 				call win_gotoid(g:tiler#sidebar.windows[0])
 			else
+				" Return to the origional sidebar and set the window color
 				call win_gotoid(tiler#api#GetCurrent().window)
+				if exists("g:tiler#colors#current")
+					setlocal winhl=Normal:TilerCurrentColor
+				endif
 			endif
 		endif
 
-		call tiler#autocommands#EnableAutocommands()
+		" Reenable the autocommands
+		call tiler#autocommands#Enable()
 	endif
 endfunction
 " }}}
+" FUNCTION: tiler#display#LoadLayout() {{{1
+function! tiler#display#LoadLayout(resize)
+	if a:resize == 1
+		let size_arg = [1, 1]
+	elseif a:resize == 0
+		let size_arg = []
+	elseif g:tiler#always_resize
+		let size_arg = [1, 1]
+	else
+		let size_arg = []
+	endif
+
+	let current_layout = tiler#api#GetLayout()
+
+	call tiler#display#LoadPanes(current_layout, [0], size_arg, 1)
+endfunction
+" }}}
+
 " FUNCTION: tiler#display#ClearEmpty() {{{1
 function! tiler#display#ClearEmpty()
 	" Clear unused empty buffers

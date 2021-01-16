@@ -62,7 +62,7 @@ function! tiler#sidebar#OpenSidebar(name)
 		endfor
 		call tiler#display#Render()
 	else
-		call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
+		call tiler#display#LoadLayout(-1)
 	endif
 endfunction
 " }}}

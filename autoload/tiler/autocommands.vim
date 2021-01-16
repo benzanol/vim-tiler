@@ -6,8 +6,8 @@ function! s:WindowMoveEvent()
 	" If the window is part of the sidebar, make the sidebar focussed
 	if has_key(g:tiler#sidebar, 'windows') && index(g:tiler#sidebar.windows, win_getid()) != -1
 		let g:tiler#sidebar.focused = 1
-	
-	" If the window is part of the window layout
+
+		" If the window is part of the window layout
 	elseif tiler#api#GetPane("window", win_getid()) != {}
 		let g:tiler#sidebar.focused = 0
 		call tiler#api#SetCurrent(tiler#api#GetPane("window", win_getid()))
@@ -35,19 +35,34 @@ function! s:NewBufferEvent()
 endfunction
 " }}}
 
-" FUNCTION: tiler#autocommands#DisableAutocommands() {{{1
-function! tiler#autocommands#DisableAutocommands()
+" FUNCTION: tiler#autocommands#Disable() {{{1
+function! tiler#autocommands#Disable()
 	augroup tiler
 		autocmd!
 	augroup END
 endfunction
 " }}}
-" FUNCTION: tiler#autocommands#EnableAutocommands() {{{1
-function! tiler#autocommands#EnableAutocommands()
+" FUNCTION: tiler#autocommands#Enable() {{{1
+function! tiler#autocommands#Enable()
 	augroup tiler
+		autocmd!
+		" Loads colors after entering vim
+		autocmd VimEnter * if tiler#api#IsEnabled() | call tiler#display#Render() | endif
+		
+		" Updates the current pane when switching between windows
 		autocmd WinEnter * if tiler#api#IsEnabled() | call s:WindowMoveEvent() | endif
+		
+		" Updates the buffer of the current pane after switching buffers
 		autocmd BufEnter * if tiler#api#IsEnabled() | call s:NewBufferEvent() | endif
+		
+		" Updates the layout of the panes in real time while resizing vim
 		autocmd VimResized * if tiler#api#IsEnabled() | call tiler#display#Render() | endif
+
+		" Updates which window is highlighted when switching between them
+		if exists("g:tiler#colors#current")
+			autocmd WinEnter * silent! if index(g:tiler#sidebar.windows, win_getid()) == -1 | setlocal winhl=Normal:TilerCurrentColor | endif
+			autocmd WinLeave * silent! if index(g:tiler#sidebar.windows, win_getid()) == -1 | setlocal winhl=Normal:TilerWindowColor | endif
+		endif
 	augroup END
 endfunction
 " }}}
