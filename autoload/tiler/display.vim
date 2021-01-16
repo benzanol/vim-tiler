@@ -115,7 +115,7 @@ function! tiler#display#RenderSidebar()
 
 	" Move the origional window to the right
 	call win_gotoid(nonsidebar_window)
-	if g:tiler#sidebar.side == "right"
+	if g:tiler#sidebar.side == 'right'
 		wincmd H
 	else
 		wincmd L

@@ -4,13 +4,15 @@
 "FUNCTION: tiler#Initialize() {{{1
 function! tiler#Initialize()
 	let g:tiler#loaded = 1
-	let g:tiler#tiler#always_resize = 1
+	let g:tiler#always_resize = 1
 	
 	let g:tiler#layouts = {}
 	let g:tiler#currents = {}
 	
 	let g:tiler#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
 	let g:tiler#sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
+	
+	let g:tiler#inactive_message = "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
 
 	command! WindowClose call tiler#actions#Close()
 	command! WindowRender call tiler#display#Render()

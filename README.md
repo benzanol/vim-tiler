@@ -36,7 +36,9 @@ Make sure to follow the instructions in the [usage](#usage) section to enable wi
 
 ## Features
 ### Tiling Functionality
-* Move windows back and forth in a natural way
+* Saves windows as a percentage of their parent cnotainer, meaning the ratio of the window sizes will always remain the same when resizing vim
+* Neighboring windows seamlessly adjust when adding, closing, or resizing windows
+* Windows can be moved naturally in any direction, instead of snapping to the screen edges as they do in vanilla vim
 ### The Sidebar
 Tiler provides a way to manage plugins such as nerdtree, taglist, or any other plugins that open up in a new window, with the built in sidebar.\
 Once you specify a sidebar plugin (see [usage](#sidebar-commands),) you can easily launch it and have it snapped to the edge of the screen.\

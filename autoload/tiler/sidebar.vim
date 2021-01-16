@@ -5,7 +5,7 @@
 function! tiler#sidebar#ToggleSidebarOpen()
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
-		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		echo g:tiler#inactive_message
 		return
 	endif
 
@@ -26,7 +26,7 @@ endfunction
 function! tiler#sidebar#ToggleSidebarFocus()
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
-		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		echo g:tiler#inactive_message
 		return
 	endif
 
@@ -47,7 +47,7 @@ endfunction
 function! tiler#sidebar#OpenSidebar(name)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
-		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		echo g:tiler#inactive_message
 		return
 	endif
 

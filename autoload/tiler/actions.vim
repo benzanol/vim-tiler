@@ -1,7 +1,7 @@
 " ==============================================================================
 " User level actions
 " ==============================================================================
-" FUNCTION: tiler#actions#Split(direction, after) {{{1
+" FUNCTION: tiler#actions#Split(direction, after) 
 function! tiler#actions#Split(direction, after)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -35,8 +35,8 @@ function! tiler#actions#Split(direction, after)
 	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
 	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
-" }}}
-" FUNCTION: tiler#actions#Close() {{{1
+" 
+" FUNCTION: tiler#actions#Close() 
 function! tiler#actions#Close()
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -75,8 +75,8 @@ function! tiler#actions#Close()
 	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], g:tiler#always_resize ? [1, 1] : [], 1)
 	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
-" }}}
-" FUNCTION: tiler#actions#Move(direction, value) {{{1
+" 
+" FUNCTION: tiler#actions#Move(direction, value) 
 function! tiler#actions#Move(direction, value)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -121,8 +121,8 @@ function! tiler#actions#Move(direction, value)
 	call tiler#display#Render()
 	call win_gotoid(pane.window)
 endfunction
-" }}}
-" FUNCTION: tiler#actions#Resize(direction, amount) {{{1
+" 
+" FUNCTION: tiler#actions#Resize(direction, amount) 
 function! tiler#actions#Resize(direction, amount)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
@@ -176,4 +176,4 @@ function! tiler#actions#Resize(direction, amount)
 
 	call tiler#display#LoadPanes(tiler#api#GetLayout(), [0], [1, 1], 1)
 endfunction
-" }}}
+" 
