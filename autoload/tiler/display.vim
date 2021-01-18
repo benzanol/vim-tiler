@@ -45,9 +45,7 @@ function! tiler#display#Render()
 		call win_gotoid(tiler#api#GetCurrent().window)
 
 		" Set the color of the current window if a special color is specified
-		if exists("g:tiler#current_color")
-			setlocal winhl=Normal:TilerCurrentColor
-		endif
+		call tiler#colors#HighlightCurrent()
 	endif
 
 	" Remove any empty buffers that were created
@@ -90,11 +88,13 @@ function! tiler#display#RenderSidebar()
 		setlocal hidden
 		setlocal nonumber
 		setlocal winfixwidth
-		setlocal laststatus=0
-
-		if exists("g:tiler#colors#sidebar")
-			setlocal winhl=Normal:TilerSidebarColor
+		setlocal statusline=\ 
+		
+		if g:tiler#colors#enabled
+			setlocal fillchars=vert:\ 
 		endif
+
+		call tiler#colors#HighlightSidebar()
 	endfor
 
 	" Move the origional window to the right
@@ -189,20 +189,31 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 			call tiler#display#LoadPanes(a:pane.children[i], new_id, new_size, 0)
 		endfor
 
-	elseif a:size != []
+	else
 		call win_gotoid(a:pane.window)
 
-		exec "vertical resize " . string((&columns - s:sidebar_size) * a:size[0])
-		" Subtract 1 because of statusline of each window
-		exec "resize " . string(&lines * a:size[1] - 1)
-
 		" Set it to the default window color
-		if exists("g:tiler#colors#window")
-			setlocal winhl=Normal:TilerWindowColor
+		call tiler#colors#HighlightWindow()
+
+		if a:size != []
+			exec "vertical resize " . string((&columns - s:sidebar_size) * a:size[0])
+			" Subtract 1 because of statusline of each window
+			exec "resize " . string(&lines * a:size[1] - 1)
 		endif
 	endif
 
+
 	if a:first
+		if a:size != [] && g:tiler#sidebar.open
+			call win_gotoid(g:tiler#sidebar.windows[0])
+			if g:tiler#sidebar.size > 1
+				let s:sidebar_size = g:tiler#sidebar.size
+			else
+				let s:sidebar_size = &columns * g:tiler#sidebar.size
+			endif
+			exec "vertical resize " . string(s:sidebar_size)
+		endif
+
 		if a:size != []
 			if g:tiler#sidebar.focused
 				" Return to the sidebar
@@ -210,9 +221,7 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 			else
 				" Return to the origional sidebar and set the window color
 				call win_gotoid(tiler#api#GetCurrent().window)
-				if exists("g:tiler#colors#current")
-					setlocal winhl=Normal:TilerCurrentColor
-				endif
+				call tiler#colors#HighlightCurrent()
 			endif
 		endif
 
@@ -221,7 +230,7 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 	endif
 endfunction
 " }}}
-" FUNCTION: tiler#display#LoadLayout() {{{1
+" FUNCTION: tiler#display#LoadLayout(resize) {{{1
 function! tiler#display#LoadLayout(resize)
 	if a:resize == 1
 		let size_arg = [1, 1]

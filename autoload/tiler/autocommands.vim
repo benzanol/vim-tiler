@@ -55,6 +55,9 @@ function! tiler#autocommands#Enable()
 		" Updates the buffer of the current pane after switching buffers
 		autocmd BufEnter * if tiler#api#IsEnabled() | call s:NewBufferEvent() | endif
 		
+		" Update the color of a new buffer when opening it
+		autocmd BufReadPost * if tiler#api#IsEnabled() | call tiler#colors#HighlightWindow() | endif
+		
 		" Updates the layout of the panes in real time while resizing vim
 		autocmd VimResized * if tiler#api#IsEnabled() | call tiler#display#Render() | endif
 

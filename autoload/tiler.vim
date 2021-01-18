@@ -15,6 +15,9 @@ function! tiler#Initialize()
 
 	let g:tiler#inactive_message = "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
 
+	let g:tiler#colors#enabled = 0
+	let g:tiler#colors#background_groups = ["Normal", "MsgArea", "SignColumn", "StatusLine", "StatusLineNC", "VertSplit"]
+
 	" Initialize commands
 	command! WindowClose call tiler#actions#Close()
 	command! WindowRender call tiler#display#Render()
