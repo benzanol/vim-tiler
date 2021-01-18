@@ -51,9 +51,13 @@ function! tiler#sidebar#OpenSidebar(name)
 		return
 	endif
 
+	let already_open = g:tiler#sidebar.open
 	let g:tiler#sidebar.open = 1
 	let g:tiler#sidebar.focused = 1
-	if !exists("g:tiler#sidebar.current.name") || a:name != g:tiler#sidebar.current.name
+
+	if already_open && a:name == g:tiler#sidebar.current.name
+		call win_gotoid(g:tiler#sidebar.windows[0])
+	else
 		for q in g:tiler#sidebar.bars
 			if has_key(q, "name") && q.name == a:name
 				let g:tiler#sidebar.current = q
@@ -61,9 +65,8 @@ function! tiler#sidebar#OpenSidebar(name)
 			endif
 		endfor
 		call tiler#display#Render()
-	else
-		call tiler#display#LoadLayout(-1)
 	endif
+
 endfunction
 " }}}
 

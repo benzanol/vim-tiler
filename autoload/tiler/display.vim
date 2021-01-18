@@ -31,13 +31,6 @@ function! tiler#display#Render()
 	" Redisable the autocommands
 	call tiler#autocommands#Disable()
 
-	" Resize the sidebar if necessary
-	if g:tiler#sidebar.open
-		call win_gotoid(g:tiler#sidebar.windows[0])
-		exec "vertical resize " . string(s:sidebar_size)
-		set winfixwidth
-	endif
-
 	" Return to the origional window
 	if g:tiler#sidebar.focused
 		call win_gotoid(g:tiler#sidebar.windows[0])
@@ -89,7 +82,7 @@ function! tiler#display#RenderSidebar()
 		setlocal nonumber
 		setlocal winfixwidth
 		setlocal statusline=\ 
-		
+
 		if g:tiler#colors#enabled
 			setlocal fillchars=vert:\ 
 		endif
@@ -216,6 +209,9 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 
 		if a:size != []
 			if g:tiler#sidebar.focused
+				" Go to the current nonsidebar window first, so that it will be stored
+				" as the alternate window
+				call win_gotoid(tiler#api#GetCurrent().window)
 				" Return to the sidebar
 				call win_gotoid(g:tiler#sidebar.windows[0])
 			else
