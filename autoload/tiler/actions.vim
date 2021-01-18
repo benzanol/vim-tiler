@@ -44,7 +44,7 @@ function! tiler#actions#Close()
 		return
 	endif
 
-	if index(g:tiler#sidebar.windows, win_getid()) != -1
+	if index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
 		call tiler#sidebar#ToggleSidebarOpen()
 		return
 	endif
@@ -54,7 +54,7 @@ function! tiler#actions#Close()
 	let pane = tiler#api#GetPane("window", win_getid())
 
 	if g:tiler#sidebar.focused
-		call win_gotoid(g:tiler#sidebar.windows[0])
+		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 	else
 		call win_gotoid(tiler#api#GetCurrent().window)
 	endif
@@ -131,7 +131,7 @@ function! tiler#actions#Resize(direction, amount)
 	endif
 
 	" If the current window is part of the sidebar
-	if index(g:tiler#sidebar.windows, win_getid()) != -1
+	if index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
 		" Reset the size to 0 if it is bugged
 		if g:tiler#sidebar.size < 0
 			let g:tiler#sidebar.size = 0

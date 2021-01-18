@@ -3,6 +3,17 @@
 " ==============================================================================
 "FUNCTION: tiler#Initialize() {{{1
 function! tiler#Initialize()
+	let g:tiler#global = 0
+
+	" Enable or disable autocommands when entering/leaving tabs
+	autocmd TabEnter *
+				\ if tiler#api#IsEnabled() |
+				\ 	call tiler#display#Render() |
+				\ 	call tiler#autocommands#Enable() |
+				\ else |
+				\ 	call tiler#autocommands#Disable() |
+				\ endif
+
 	" Initialize variables
 	let g:tiler#loaded = 1
 	let g:tiler#always_resize = 1
@@ -10,7 +21,7 @@ function! tiler#Initialize()
 	let g:tiler#layouts = {}
 	let g:tiler#currents = {}
 
-	let g:tiler#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":[], "bars":[]}
+	let g:tiler#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":{}, "bars":[]}
 	let g:tiler#sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
 
 	let g:tiler#inactive_message = "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
@@ -63,18 +74,6 @@ function! tiler#TabEnable()
 	return 1
 endfunction
 " }}}
-" FUNCTION: tiler#GlobalEnable() {{{1
-function! tiler#GlobalEnable()
-	call tiler#TabEnable()
-
-	augroup tiler_enable
-		autocmd TabNew * call tiler#TabEnable()
-	augroup END
-
-	return 1
-endfunction
-" }}}
-
 " FUNCTION: tiler#TabDisable() {{{1
 function! tiler#TabDisable()
 	if !tiler#api#IsEnabled()
@@ -86,8 +85,35 @@ function! tiler#TabDisable()
 	return 1
 endfunction
 " }}}
+" FUNCTION: tiler#TabToggle() {{{1
+function! tiler#TabToggle()
+	if tiler#api#IsEnabled()
+		call tiler#TabDisable()
+		return 0
+	else
+		call tiler#TabEnable()
+		return 1
+	endif
+endfunction
+" }}}
+
+" FUNCTION: tiler#GlobalEnable() {{{1
+function! tiler#GlobalEnable()
+	let g:tiler#global = 1
+
+	call tiler#TabEnable()
+
+	augroup tiler_enable
+		autocmd TabNewEntered * call tiler#TabEnable()
+	augroup END
+
+	return 1
+endfunction
+" }}}
 " FUNCTION: tiler#GlobalDisable() {{{1
 function! tiler#GlobalDisable()
+	let g:tiler#global = 0
+
 	augroup tiler_enable
 		autocmd!
 	augroup END
@@ -96,5 +122,16 @@ function! tiler#GlobalDisable()
 	let g:tiler#currents = {}
 
 	return 1
+endfunction
+" }}}
+" FUNCTION: tiler#GlobalToggle() {{{1
+function! tiler#GlobalToggle()
+	if g:tiler#global
+		call tiler#GlobalDisable()
+		return 0
+	else
+		call tiler#GlobalEnable()
+		return 1
+	endif
 endfunction
 " }}}

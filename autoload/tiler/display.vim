@@ -8,19 +8,19 @@ function! tiler#display#Render()
 	let layout.size = 1
 
 	" Close all windows except for the current one
+	call win_gotoid(tiler#api#GetCurrent().window)
 	wincmd L
 	while winnr("$") > 1
 		1close!
 	endwhile
 	let windows_window = win_getid()
-
+	
 	" Load the sidebar
-	let s:sidebar_size = 0
-	let g:tiler#sidebar.windows = []
+	let g:tiler#sidebar.windows[tabpagenr()] = []
 	if g:tiler#sidebar.open
-		let s:sidebar_size = tiler#display#RenderSidebar()
+		call tiler#display#RenderSidebar()
 	endif
-
+	
 	" Form the split layout
 	call win_gotoid(windows_window)
 	call tiler#display#LoadSplits(tiler#api#GetLayout(), 1)
@@ -33,7 +33,7 @@ function! tiler#display#Render()
 
 	" Return to the origional window
 	if g:tiler#sidebar.focused
-		call win_gotoid(g:tiler#sidebar.windows[0])
+		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 	else
 		call win_gotoid(tiler#api#GetCurrent().window)
 
@@ -61,20 +61,20 @@ function! tiler#display#RenderSidebar()
 		let window_id = win_getid(i)
 
 		if window_id != nonsidebar_window
-			call add(g:tiler#sidebar.windows, window_id)
+			call add(g:tiler#sidebar.windows[tabpagenr()], window_id)
 			call add(g:tiler#sidebar.current.buffers, bufnr(win_id2win(window_id)))
 		endif
 	endfor
 
 	" Create a blank window if a window wasn't created
-	if !exists("g:tiler#sidebar.windows") || len(g:tiler#sidebar.windows) < 1
+	if !exists("g:tiler#sidebar.windows[tabpagenr()]") || len(g:tiler#sidebar.windows[tabpagenr()]) < 1
 		vnew
-		let g:tiler#sidebar.windows = [win_getid()]
+		let g:tiler#sidebar.windows[tabpagenr()] = [win_getid()]
 	endif
 
 	" Move the sidebar windows into a column and set settings
-	for i in range(len(g:tiler#sidebar.windows))
-		call win_gotoid(g:tiler#sidebar.windows[i])
+	for i in range(len(g:tiler#sidebar.windows[tabpagenr()]))
+		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][i])
 		wincmd J
 
 		setlocal nobuflisted
@@ -99,15 +99,13 @@ function! tiler#display#RenderSidebar()
 	endif
 
 	" Figure out the size and resize the sidebar
-	call win_gotoid(g:tiler#sidebar.windows[0])
+	call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 	if g:tiler#sidebar.size > 1
-		let s:sidebar_size = g:tiler#sidebar.size
+		let sidebar_size = g:tiler#sidebar.size
 	else
-		let s:sidebar_size = &columns * g:tiler#sidebar.size
+		let sidebar_size = &columns * g:tiler#sidebar.size
 	endif
-	exec "vertical resize " . string(s:sidebar_size)
-
-	return s:sidebar_size
+	exec "vertical resize " . string(sidebar_size)
 endfunction
 " }}}
 
@@ -189,7 +187,7 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 		call tiler#colors#HighlightWindow()
 
 		if a:size != []
-			exec "vertical resize " . string((&columns - s:sidebar_size) * a:size[0])
+			exec "vertical resize " . string((&columns - tiler#api#GetSidebarWidth()) * a:size[0])
 			" Subtract 1 because of statusline of each window
 			exec "resize " . string(&lines * a:size[1] - 1)
 		endif
@@ -198,13 +196,8 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 
 	if a:first
 		if a:size != [] && g:tiler#sidebar.open
-			call win_gotoid(g:tiler#sidebar.windows[0])
-			if g:tiler#sidebar.size > 1
-				let s:sidebar_size = g:tiler#sidebar.size
-			else
-				let s:sidebar_size = &columns * g:tiler#sidebar.size
-			endif
-			exec "vertical resize " . string(s:sidebar_size)
+			call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
+			exec "vertical resize " . string(tiler#api#GetSidebarWidth())
 		endif
 
 		if a:size != []
@@ -213,7 +206,7 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 				" as the alternate window
 				call win_gotoid(tiler#api#GetCurrent().window)
 				" Return to the sidebar
-				call win_gotoid(g:tiler#sidebar.windows[0])
+				call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 			else
 				" Return to the origional sidebar and set the window color
 				call win_gotoid(tiler#api#GetCurrent().window)

@@ -13,7 +13,7 @@ function! tiler#sidebar#ToggleSidebarOpen()
 		let g:tiler#sidebar.open = 0
 		let g:tiler#sidebar.focused = 0
 		let g:tiler#sidebar.current = {}
-		let g:tiler#sidebar.windows = []
+		let g:tiler#sidebar.windows[tabpagenr()] = []
 	else " Enable the sidebar if it is not already active
 		let g:tiler#sidebar.open = 1
 		let g:tiler#sidebar.focused = 1 
@@ -40,7 +40,7 @@ function! tiler#sidebar#ToggleSidebarFocus()
 		let g:tiler#sidebar.focused = 1
 	endif
 
-	call win_gotoid(g:tiler#sidebar.windows[0])
+	call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 endfunction
 " }}}
 " FUNCTION: tiler#sidebar#OpenSidebar(name) {{{1
@@ -56,7 +56,7 @@ function! tiler#sidebar#OpenSidebar(name)
 	let g:tiler#sidebar.focused = 1
 
 	if already_open && a:name == g:tiler#sidebar.current.name
-		call win_gotoid(g:tiler#sidebar.windows[0])
+		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 	else
 		for q in g:tiler#sidebar.bars
 			if has_key(q, "name") && q.name == a:name

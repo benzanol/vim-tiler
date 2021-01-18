@@ -30,6 +30,7 @@ function! tiler#api#AddLayout()
 		return 0
 	else
 		let g:tiler#layouts[tabpagenr()] = tiler#api#GetNewLayout()
+		let g:tiler#sidebar.windows[tabpagenr()] = []
 	endif
 endfunction
 " }}}
@@ -120,6 +121,16 @@ function! tiler#api#GetPane(datapoint, value)
 		endwhile
 
 		return {}
+	endif
+endfunction
+" }}}
+
+"FUNCTION: tiler#api#GetSidebarWidth() {{{1
+function! tiler#api#GetSidebarWidth()
+	if g:tiler#sidebar.size > 1
+		return g:tiler#sidebar.size
+	else
+		return &columns * g:tiler#sidebar.size
 	endif
 endfunction
 " }}}

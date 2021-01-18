@@ -4,7 +4,7 @@
 " FUNCTION: s:WindowMoveEvent() {{{1
 function! s:WindowMoveEvent()
 	" If the window is part of the sidebar, make the sidebar focussed
-	if has_key(g:tiler#sidebar, 'windows') && index(g:tiler#sidebar.windows, win_getid()) != -1
+	if has_key(g:tiler#sidebar, 'windows') && index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
 		let g:tiler#sidebar.focused = 1
 
 		" If the window is part of the window layout
@@ -60,11 +60,11 @@ function! tiler#autocommands#Enable()
 		
 		" Updates the layout of the panes in real time while resizing vim
 		autocmd VimResized * if tiler#api#IsEnabled() | call tiler#display#Render() | endif
-
+		
 		" Updates which window is highlighted when switching between them
 		if exists("g:tiler#colors#current")
-			autocmd WinEnter * silent! if index(g:tiler#sidebar.windows, win_getid()) == -1 | setlocal winhl=Normal:TilerCurrentColor | endif
-			autocmd WinLeave * silent! if index(g:tiler#sidebar.windows, win_getid()) == -1 | setlocal winhl=Normal:TilerWindowColor | endif
+			autocmd WinEnter * silent! if index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) == -1 | setlocal winhl=Normal:TilerCurrentColor | endif
+			autocmd WinLeave * silent! if index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) == -1 | setlocal winhl=Normal:TilerWindowColor | endif
 		endif
 	augroup END
 endfunction
