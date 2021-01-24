@@ -11,7 +11,7 @@ function! tiler#layout#AddPane(new_pane, location_id, direction, after)
 	endif
 
 	let location_parent = tiler#api#GetPane("id", a:location_id[0:-2])
-
+	
 	" The new pane should be added to the list in the location id
 	if location_pane.layout == a:direction
 		let children = location_pane.children
@@ -20,6 +20,7 @@ function! tiler#layout#AddPane(new_pane, location_id, direction, after)
 		for i in range(len(children))
 			let children[i].size = 1.0 * (len(children) / (len(children) + 1.0)) * children[i].size
 		endfor
+		
 		let a:new_pane.size = 1.0 / (len(children) + 1)
 
 		" Add the windows to the list
@@ -61,7 +62,8 @@ function! tiler#layout#AddPane(new_pane, location_id, direction, after)
 		let new_parent.children[1].size = 0.5
 	endif
 
-	call tiler#display#LoadLayout(-1)
+	call tiler#display#LoadLayout(0)
+	
 	return a:new_pane
 endfunction
 " }}}

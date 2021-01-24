@@ -112,10 +112,10 @@ The default size is 30 pixels.
 `nnoremap <silent> <nowait> <C-w>S :SidebarToggleOpen<CR>`\
 `nnoremap <silent> <nowait> <C-w>s :SidebarToggleFocus<CR>`
 
-`let g:tiler#sidebar.side = 'left'`
-`let g:tiler#sidebar.size = '0.2'`
+`let g:tiler#sidebar.side = 'left'`\
+`let g:tiler#sidebar.size = '0.2'`\
 `call tiler#sidebar#AddNew("filetree", "call filetree#Launch()")`\
-`call tiler#sidebar#AddNew("mundo", "MundoToggle")`
+`call tiler#sidebar#AddNew("mundo", "MundoToggle")`\
 `call tiler#sidebar#AddNew("taglist", "Tlist")`
 
 `nnoremap <silent> <nowait> <C-w>1 :SidebarOpen nerdtree`\

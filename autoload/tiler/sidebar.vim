@@ -75,3 +75,13 @@ function! tiler#sidebar#AddNew(name, command)
 	call add(g:tiler#sidebar.bars, {'name':a:name, 'command':a:command})
 endfunction
 " }}}
+
+"FUNCTION: tiler#sidebar#GetWidth() {{{1
+function! tiler#sidebar#GetWidth()
+	if g:tiler#sidebar.size > 1
+		return g:tiler#sidebar.size
+	else
+		return &columns * g:tiler#sidebar.size
+	endif
+endfunction
+" }}}

@@ -38,42 +38,27 @@ endfunction
 " }}}
 " FUNCTION: tiler#actions#Close() {{{1
 function! tiler#actions#Close()
-	" Exit if not currently active
+	" Run the close command if tiler is not currently active
 	if !tiler#api#IsEnabled()
-		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
-		return
-	endif
+		close!
 
-	if index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
+	elseif index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
+		" Close the sidebar if it is focused
 		call tiler#sidebar#ToggleSidebarOpen()
-		return
-	endif
 
-	let window = winnr()
-	let was_empty = bufname() == ""
-	let pane = tiler#api#GetPane("window", win_getid())
+	elseif tiler#api#GetPane("window", win_getid()) != {}
+		" Close the current window if it is part of the layout, but not the root
+		let pane = tiler#api#GetPane("window", win_getid())
+		if len(pane.id) > 1
+			silent! close!
+			call tiler#api#SetCurrent(tiler#layout#RemovePane(pane.id))
+			call tiler#display#LoadLayout(-1)
+		endif
 
-	if g:tiler#sidebar.focused
-		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 	else
-		call win_gotoid(tiler#api#GetCurrent().window)
+		silent! close!
+
 	endif
-
-	exec 'silent!' window 'close!'
-
-	if was_empty
-		call tiler#display#ClearEmpty()
-	endif
-
-	if pane == {} || len(pane.id) <= 1
-		return
-	endif
-
-	call tiler#api#SetCurrent(tiler#layout#RemovePane(pane.id))
-
-	" Set the sizes of the panes and return to the origional window
-	call tiler#display#LoadLayout(-1)
-	call win_gotoid(tiler#api#GetCurrent().window)
 endfunction
 " }}}
 " FUNCTION: tiler#actions#Move(direction, value) {{{1
@@ -92,12 +77,12 @@ function! tiler#actions#Move(direction, value)
 	let id = pane.id
 	let parent = tiler#api#GetPane("id", id[0:-2])
 	let parents_parent = tiler#api#GetPane("id", id[0:-3])
-
+	
 	" Move the pane out of its current parent
 	if parent.layout != a:direction
 		call tiler#layout#RemovePane(pane.id)
 		call tiler#layout#AddPane(pane, id[0:-2], a:direction, a:value)
-
+		
 		" If the pane is on the end of its parent, move it out
 	elseif (id[-1] == 0 && a:value == 0) || (id[-1] == len(parent.children) - 1 && a:value == 1)
 		if parent.id == [0]
@@ -106,7 +91,7 @@ function! tiler#actions#Move(direction, value)
 
 		call tiler#actions#Move(a:direction == "v" ? "h" : "v", 1)
 		call tiler#actions#Move(a:direction, a:value)
-
+		
 		" If there are only 2 panes in the parent, swap their places
 	elseif len(parent.children) == 2
 		let parent.children = [parent.children[1], parent.children[0]]
@@ -126,7 +111,11 @@ endfunction
 function! tiler#actions#Resize(direction, amount)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
-		echo "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
+		if direction == "h"
+			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
+		else
+			exec "resize " . string(winheight(0) + &lines * a:amount)
+		endif
 		return
 	endif
 
@@ -145,16 +134,6 @@ function! tiler#actions#Resize(direction, amount)
 		else
 			let g:tiler#sidebar.size += a:amount
 			exec "vertical resize " . string(&columns * g:tiler#sidebar.size)
-		endif
-		return
-	endif
-
-	" Manualy resize the window
-	if !g:tiler#always_resize
-		if a:direction == "h"
-			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
-		else
-			exec "resize " . string(winheight(0) + &lines * a:amount)
 		endif
 		return
 	endif
@@ -178,7 +157,15 @@ function! tiler#actions#Resize(direction, amount)
 		return
 	endif
 
+	" Set the size to 1 or 0 if it is outside the correct range
 	let pane.size += a:amount
+	if pane.size > 1
+		let pane.size = 1
+	elseif pane.size < 0
+		let pane.size = 0
+	endif
+
+	" Reduce the rest of the windows in the layout accordingly
 	let reduce_factor = 1.0 * a:amount / (len(parent.children) - 1.0)
 	for q in parent.children
 		if q.id != pane.id
@@ -186,6 +173,17 @@ function! tiler#actions#Resize(direction, amount)
 		endif
 	endfor
 
-	call tiler#display#LoadLayout(1)
+	" Manualy resize the window if always resize is disabled
+	if !g:tiler#always_resize
+		if a:direction == "h"
+			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
+		else
+			exec "resize " . string(winheight(0) + &lines * a:amount)
+		endif
+		return
+
+	else
+		call tiler#display#LoadLayout(1)
+	endif
 endfunction
 " }}}

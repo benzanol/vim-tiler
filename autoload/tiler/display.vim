@@ -3,6 +3,7 @@
 " ==============================================================================
 " FUNCTION: tiler#display#Render() {{{1
 function! tiler#display#Render()
+	" Prepare for rendering
 	call tiler#autocommands#Disable()
 	let layout = tiler#api#GetLayout()
 	let layout.size = 1
@@ -14,13 +15,13 @@ function! tiler#display#Render()
 		1close!
 	endwhile
 	let windows_window = win_getid()
-	
+
 	" Load the sidebar
 	let g:tiler#sidebar.windows[tabpagenr()] = []
 	if g:tiler#sidebar.open
 		call tiler#display#RenderSidebar()
 	endif
-	
+
 	" Form the split layout
 	call win_gotoid(windows_window)
 	call tiler#display#LoadSplits(tiler#api#GetLayout(), 1)
@@ -40,9 +41,6 @@ function! tiler#display#Render()
 		" Set the color of the current window if a special color is specified
 		call tiler#colors#HighlightCurrent()
 	endif
-
-	" Remove any empty buffers that were created
-	call tiler#display#ClearEmpty()
 
 	call tiler#autocommands#Enable()
 endfunction
@@ -69,6 +67,7 @@ function! tiler#display#RenderSidebar()
 	" Create a blank window if a window wasn't created
 	if !exists("g:tiler#sidebar.windows[tabpagenr()]") || len(g:tiler#sidebar.windows[tabpagenr()]) < 1
 		vnew
+		setlocal nobuflisted
 		let g:tiler#sidebar.windows[tabpagenr()] = [win_getid()]
 	endif
 
@@ -78,7 +77,7 @@ function! tiler#display#RenderSidebar()
 		wincmd J
 
 		setlocal nobuflisted
-		setlocal hidden
+		setlocal nobuflisted
 		setlocal nonumber
 		setlocal winfixwidth
 		setlocal statusline=\ 
@@ -131,13 +130,17 @@ function! tiler#display#LoadSplits(pane, first)
 		let a:pane.children[0].window = win_getid()
 		for i in range(1, len(a:pane.children) - 1)
 			exec split_cmd
+			setlocal nobuflisted
 			let a:pane.children[i].window = win_getid()
 		endfor
 
 		" Return to each split and set it up
 		for i in range(len(a:pane.children))
 			call win_gotoid(a:pane.children[i].window)
-			call tiler#display#LoadSplits(a:pane.children[i], 0)
+
+			if tiler#display#LoadSplits(a:pane.children[i], 0) == 1
+				return 1
+			endif
 		endfor
 
 		if has_key(a:pane, "window")
@@ -148,6 +151,7 @@ function! tiler#display#LoadSplits(pane, first)
 	if a:first
 		call tiler#autocommands#Enable()
 	endif
+	return 0
 endfunction
 " }}}
 " FUNCTION: tiler#display#LoadPanes(pane, id, size, first) {{{1
@@ -187,7 +191,12 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 		call tiler#colors#HighlightWindow()
 
 		if a:size != []
-			exec "vertical resize " . string((&columns - tiler#api#GetSidebarWidth()) * a:size[0])
+			if g:tiler#sidebar.open
+				exec "vertical resize " . string((&columns - tiler#sidebar#GetWidth()) * a:size[0])
+			else
+				exec "vertical resize " . string(&columns * a:size[0])
+			endif
+
 			" Subtract 1 because of statusline of each window
 			exec "resize " . string(&lines * a:size[1] - 1)
 		endif
@@ -197,7 +206,7 @@ function! tiler#display#LoadPanes(pane, id, size, first)
 	if a:first
 		if a:size != [] && g:tiler#sidebar.open
 			call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
-			exec "vertical resize " . string(tiler#api#GetSidebarWidth())
+			exec "vertical resize " . string(tiler#sidebar#GetWidth())
 		endif
 
 		if a:size != []
@@ -234,24 +243,5 @@ function! tiler#display#LoadLayout(resize)
 	let current_layout = tiler#api#GetLayout()
 
 	call tiler#display#LoadPanes(current_layout, [0], size_arg, 1)
-endfunction
-" }}}
-
-" FUNCTION: tiler#display#ClearEmpty() {{{1
-function! tiler#display#ClearEmpty()
-	" Clear unused empty buffers
-	let open_buffer_list = []
-	let current_tab = tabpagenr()
-	exec "tabdo for i in range(1, winnr('$')) | call add(open_buffer_list, winbufnr(i)) | endfor"
-	" Return to the current tab
-	while tabpagenr() != current_tab
-		tabnext
-	endwhile
-
-	for i in range(1, bufnr("$"))
-		if bufname(i) == "" && index(open_buffer_list, i) == -1
-			silent! exec string(i) . "bdelete!"
-		endif
-	endfor
 endfunction
 " }}}
