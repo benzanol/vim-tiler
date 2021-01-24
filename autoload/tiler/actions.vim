@@ -18,14 +18,16 @@ function! tiler#actions#Split(direction, after)
 	" Create the split for the pane
 	if a:direction == "v"
 		let old_split_dir = &splitbelow
-		exec "set " . (a:after ? "" : "no") . "splitbelow"
-		new
-		exec "set " . (old_split_dir ? "" : "no") . "splitbelow"
+		execute "set " . (a:after ? "" : "no") . "splitbelow"
+		split
+		execute g:tiler#blank_buffer . 'buffer'
+		execute "set " . (old_split_dir ? "" : "no") . "splitbelow"
 	else
 		let old_split_dir = &splitright
-		exec "set " . (a:after ? "" : "no") . "splitright"
-		vnew
-		exec "set " . (old_split_dir ? "" : "no") . "splitright"
+		execute "set " . (a:after ? "" : "no") . "splitright"
+		vsplit
+		execute g:tiler#blank_buffer . 'buffer'
+		execute "set " . (old_split_dir ? "" : "no") . "splitright"
 	endif
 
 	let current_id = pane.id
@@ -112,9 +114,9 @@ function! tiler#actions#Resize(direction, amount)
 	" Exit if not currently active
 	if !tiler#api#IsEnabled()
 		if direction == "h"
-			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
+			execute "vertical resize " . string(winwidth(0) + &columns * a:amount)
 		else
-			exec "resize " . string(winheight(0) + &lines * a:amount)
+			execute "resize " . string(winheight(0) + &lines * a:amount)
 		endif
 		return
 	endif
@@ -129,11 +131,11 @@ function! tiler#actions#Resize(direction, amount)
 		" If the size is in terms of pixels
 		if g:tiler#sidebar.size > 1
 			let g:tiler#sidebar.size += 1.0 * &columns * a:amount
-			exec "vertical resize " . string(g:tiler#sidebar.size)
+			execute "vertical resize " . string(g:tiler#sidebar.size)
 			" If the size is in terms of a percent
 		else
 			let g:tiler#sidebar.size += a:amount
-			exec "vertical resize " . string(&columns * g:tiler#sidebar.size)
+			execute "vertical resize " . string(&columns * g:tiler#sidebar.size)
 		endif
 		return
 	endif
@@ -176,9 +178,9 @@ function! tiler#actions#Resize(direction, amount)
 	" Manualy resize the window if always resize is disabled
 	if !g:tiler#always_resize
 		if a:direction == "h"
-			exec "vertical resize " . string(winwidth(0) + &columns * a:amount)
+			execute "vertical resize " . string(winwidth(0) + &columns * a:amount)
 		else
-			exec "resize " . string(winheight(0) + &lines * a:amount)
+			execute "resize " . string(winheight(0) + &lines * a:amount)
 		endif
 		return
 

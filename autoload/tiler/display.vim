@@ -10,10 +10,8 @@ function! tiler#display#Render()
 
 	" Close all windows except for the current one
 	call win_gotoid(tiler#api#GetCurrent().window)
-	wincmd L
-	while winnr("$") > 1
-		1close!
-	endwhile
+	execute g:tiler#blank_buffer . "buffer"
+	wincmd o
 	let windows_window = win_getid()
 
 	" Load the sidebar
@@ -66,8 +64,8 @@ function! tiler#display#RenderSidebar()
 
 	" Create a blank window if a window wasn't created
 	if !exists("g:tiler#sidebar.windows[tabpagenr()]") || len(g:tiler#sidebar.windows[tabpagenr()]) < 1
-		vnew
-		setlocal nobuflisted
+		vsplit
+		execute g:tiler#blank_buffer . "buffer"
 		let g:tiler#sidebar.windows[tabpagenr()] = [win_getid()]
 	endif
 
@@ -76,7 +74,6 @@ function! tiler#display#RenderSidebar()
 		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][i])
 		wincmd J
 
-		setlocal nobuflisted
 		setlocal nobuflisted
 		setlocal nonumber
 		setlocal winfixwidth
@@ -126,11 +123,10 @@ function! tiler#display#LoadSplits(pane, first)
 
 	else
 		" Set up the splits
-		let split_cmd = (a:pane.layout == "h") ? "vertical new" : "new"
+		let split_cmd = (a:pane.layout == "h") ? "vsplit" : "split"
 		let a:pane.children[0].window = win_getid()
 		for i in range(1, len(a:pane.children) - 1)
 			exec split_cmd
-			setlocal nobuflisted
 			let a:pane.children[i].window = win_getid()
 		endfor
 
