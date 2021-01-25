@@ -50,22 +50,6 @@ function! tiler#Initialize()
 	command! SidebarToggleOpen call tiler#sidebar#ToggleSidebarOpen()
 	command! SidebarToggleFocus call tiler#sidebar#ToggleSidebarFocus()
 	command! -nargs=1 SidebarOpen call tiler#sidebar#OpenSidebar("<args>")
-	
-	" Create or set a blank buffer
-	if bufname() == ''
-		let g:tiler#blank_buffer = bufnr()
-		set nobuflisted
-	else
-		let current_buffer = bufnr()
-		
-		enew
-		let g:tiler#blank_buffer = bufnr()
-		set nobuflisted
-		
-		execute current_buffer . 'buffer'
-	endif
-
-	call tiler#autocommands#Enable()
 endfunction " }}}
 
 " FUNCTION: tiler#TabEnable() {{{1

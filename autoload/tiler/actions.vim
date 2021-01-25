@@ -15,20 +15,7 @@ function! tiler#actions#Split(direction, after)
 		return
 	endif
 
-	" Create the split for the pane
-	if a:direction == "v"
-		let old_split_dir = &splitbelow
-		execute "set " . (a:after ? "" : "no") . "splitbelow"
-		split
-		execute g:tiler#blank_buffer . 'buffer'
-		execute "set " . (old_split_dir ? "" : "no") . "splitbelow"
-	else
-		let old_split_dir = &splitright
-		execute "set " . (a:after ? "" : "no") . "splitright"
-		vsplit
-		execute g:tiler#blank_buffer . 'buffer'
-		execute "set " . (old_split_dir ? "" : "no") . "splitright"
-	endif
+	call g:tiler#display#BlankSplit(a:direction, a:after)
 
 	let current_id = pane.id
 	call tiler#api#SetCurrent(tiler#layout#AddPane({"layout":"w", "window":win_getid()}, current_id, a:direction, a:after))
