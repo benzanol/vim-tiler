@@ -1,19 +1,3 @@
-" Setters for different colors
-function! tiler#colors#SetWindowColor(color)
-	exec "highlight TilerWindowColor ctermbg=" . a:color.cterm . " guibg=" . a:color.gui
-	let g:tiler#colors#window = a:color
-endfunction
-
-function! tiler#colors#SetCurrentColor(color)
-	exec "highlight TilerCurrentColor ctermbg=" . a:color.cterm . " guibg=" . a:color.gui
-	let g:tiler#colors#current = a:color
-endfunction
-
-function! tiler#colors#SetSidebarColor(color)
-	exec "highlight TilerSidebarColor ctermbg=" . a:color.cterm . " guibg=" . a:color.gui
-	let g:tiler#colors#sidebar = a:color
-endfunction
-
 " Functions for highlighting different types of windows
 function! tiler#colors#HighlightWindow()
 	if exists("g:tiler#colors#window") && g:tiler#colors#enabled

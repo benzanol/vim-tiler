@@ -55,24 +55,16 @@ function! tiler#sidebar#OpenSidebar(name)
 	let g:tiler#sidebar.open = 1
 	let g:tiler#sidebar.focused = 1
 
-	if already_open && a:name == g:tiler#sidebar.current.name
+	if already_open && a:name == g:tiler#sidebar.name
 		call win_gotoid(g:tiler#sidebar.windows[tabpagenr()][0])
 	else
-		for q in g:tiler#sidebar.bars
-			if has_key(q, "name") && q.name == a:name
-				let g:tiler#sidebar.current = q
-				break
-			endif
-		endfor
+		if has_key(g:tiler#sidebars, a:name)
+			let g:tiler#sidebar.name = a:name
+			let g:tiler#sidebar.command = g:tiler#sidebars[a:name]
+		endif
 		call tiler#display#Render()
 	endif
 
-endfunction
-" }}}
-
-" FUNCTION: tiler#sidebar#AddNew(name, command) {{{1
-function! tiler#sidebar#AddNew(name, command)
-	call add(g:tiler#sidebar.bars, {'name':a:name, 'command':a:command})
 endfunction
 " }}}
 
