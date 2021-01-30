@@ -8,28 +8,27 @@ let g:tiler#loaded = 1
 " Disable tiler on all tabs by default
 let g:tiler#global = 0
 
-" Enable or disable autocommands when entering/leaving tabs
-autocmd TabEnter *
-			\ if tiler#api#IsEnabled() |
-			\ 	call tiler#display#Render() |
-			\ 	call tiler#autocommands#Enable() |
-			\ else |
-			\ 	call tiler#autocommands#Disable() |
-			\ endif
-
-" Initialize variables
-let g:tiler#loaded = 1
+" Resize windows even when it may not be necessary
 let g:tiler#always_resize = 1
 
+" The window layout for each tab
 let g:tiler#layouts = {}
+
+" The current window for each tab
 let g:tiler#currents = {}
 
+" The sidebar, which is universal across tabs
 let g:tiler#sidebar = {"open":0, "focused":0, "size":30, "side":"left", "windows":{}, "bars":[]}
 let g:tiler#sidebar.current = {"name":"blank", "command":"vnew | wincmd H"}
 
+" Message to display when trying to run a tiler command when tiler is inactive
 let g:tiler#inactive_message = "Tiler is not active on this tab. Run 'call tiler#TabEnable()' to activate it."
 
+" Whether or not to show the windows in a different color from the sidebar and
+" border, as they would in an IDE or other full featured code editor
 let g:tiler#colors#enabled = 0
+
+" Groups to give the secondary outside color
 let g:tiler#colors#background_groups = ["Normal", "MsgArea", "SignColumn", "StatusLine", "StatusLineNC", "VertSplit"]
 
 " Initialize commands
@@ -69,3 +68,12 @@ if exists("g:tiler#colors#current")
 	let color = g:tiler#colors#current
 	execute printf("highlight TilerCurrentColor ctermbg=%s guibg=%s", color.cterm, color.gui)
 endif
+
+" Enable or disable autocommands when entering/leaving tabs
+autocmd TabEnter *
+			\ if tiler#api#IsEnabled() |
+			\ 	call tiler#display#Render() |
+			\ 	call tiler#autocommands#Enable() |
+			\ else |
+			\ 	call tiler#autocommands#Disable() |
+			\ endif

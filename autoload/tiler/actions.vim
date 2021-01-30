@@ -15,10 +15,25 @@ function! tiler#actions#Split(direction, after)
 		return
 	endif
 
-	call g:tiler#display#BlankSplit(a:direction, a:after)
+	" Create the split for the pane
+	if a:direction == "v"
+		let old_split_dir = &splitbelow
+		execute "set " . (a:after ? "" : "no") . "splitbelow"
+		new
+		execute "set " . (old_split_dir ? "" : "no") . "splitbelow"
+	else
+		let old_split_dir = &splitright
+		execute "set " . (a:after ? "" : "no") . "splitright"
+		vnew
+		execute "set " . (old_split_dir ? "" : "no") . "splitright"
+	endif
 
+	let g:one = bufnr()
 	let current_id = pane.id
-	call tiler#api#SetCurrent(tiler#layout#AddPane({"layout":"w", "window":win_getid()}, current_id, a:direction, a:after))
+	let new_window = tiler#layout#AddPane({"layout":"w", "window":win_getid()}, current_id, a:direction, a:after)
+	let g:two = bufnr()
+	let new_window.buffer = bufnr()
+	call tiler#api#SetCurrent(new_window)
 
 	" Set the sizes of the panes and return to the origional window
 	call tiler#display#LoadLayout(-1)
@@ -31,19 +46,27 @@ function! tiler#actions#Close()
 	if !tiler#api#IsEnabled()
 		close!
 
-	elseif index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
 		" Close the sidebar if it is focused
+	elseif index(g:tiler#sidebar.windows[tabpagenr()], win_getid()) != -1
 		call tiler#sidebar#ToggleSidebarOpen()
 
-	elseif tiler#api#GetPane("window", win_getid()) != {}
 		" Close the current window if it is part of the layout, but not the root
+	elseif tiler#api#GetPane("window", win_getid()) != {}
 		let pane = tiler#api#GetPane("window", win_getid())
 		if len(pane.id) > 1
-			silent! close!
+			" Close the window, but only delete the buffer if it is empty 
+			if bufname(0) == ''
+				silent! quit!
+			else
+				silent! close!
+			endif
+
 			call tiler#api#SetCurrent(tiler#layout#RemovePane(pane.id))
 			call tiler#display#LoadLayout(-1)
 		endif
 
+		" Run the close command if tiler is enabled but the current window is not
+		" part of the layout
 	else
 		silent! close!
 
@@ -66,12 +89,12 @@ function! tiler#actions#Move(direction, value)
 	let id = pane.id
 	let parent = tiler#api#GetPane("id", id[0:-2])
 	let parents_parent = tiler#api#GetPane("id", id[0:-3])
-	
+
 	" Move the pane out of its current parent
 	if parent.layout != a:direction
 		call tiler#layout#RemovePane(pane.id)
 		call tiler#layout#AddPane(pane, id[0:-2], a:direction, a:value)
-		
+
 		" If the pane is on the end of its parent, move it out
 	elseif (id[-1] == 0 && a:value == 0) || (id[-1] == len(parent.children) - 1 && a:value == 1)
 		if parent.id == [0]
@@ -80,7 +103,7 @@ function! tiler#actions#Move(direction, value)
 
 		call tiler#actions#Move(a:direction == "v" ? "h" : "v", 1)
 		call tiler#actions#Move(a:direction, a:value)
-		
+
 		" If there are only 2 panes in the parent, swap their places
 	elseif len(parent.children) == 2
 		let parent.children = [parent.children[1], parent.children[0]]

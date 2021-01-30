@@ -11,7 +11,6 @@ function! tiler#display#Render()
 
 	" Close all windows except for the current one
 	noa call win_gotoid(tiler#api#GetCurrent().window)
-	call tiler#display#GoToBlankBuffer()
 	noa wincmd o
 	let windows_window = win_getid()
 
@@ -66,7 +65,7 @@ function! tiler#display#RenderSidebar()
 
 	" Create a blank window if a window wasn't created
 	if !exists("g:tiler#sidebar.windows[tabpagenr()]") || len(g:tiler#sidebar.windows[tabpagenr()]) < 1
-		call tiler#display#BlankSplit('h', 1)
+		new
 		let g:tiler#sidebar.windows[tabpagenr()] = [win_getid()]
 	endif
 
@@ -240,39 +239,5 @@ function! tiler#display#LoadLayout(resize)
 	let current_layout = tiler#api#GetLayout()
 
 	call tiler#display#LoadPanes(current_layout, [0], size_arg, 1)
-endfunction
-" }}}
-
-" FUNCTION: tiler#display#BlankSplit(direction, after) {{{1
-function! tiler#display#BlankSplit(direction, after)
-	" Remember the old split direction
-	if a:direction == "v"
-		let old_split_dir = &splitbelow
-		execute "set " . (a:after ? "" : "no") . "splitbelow"
-		noa split
-		call tiler#display#GoToBlankBuffer()
-		execute "set " . (old_split_dir ? "" : "no") . "splitbelow"
-	else
-		let old_split_dir = &splitright
-		execute "set " . (a:after ? "" : "no") . "splitright"
-		noa vsplit
-		call tiler#display#GoToBlankBuffer()
-		execute "set " . (old_split_dir ? "" : "no") . "splitright"
-	endif
-endfunction
-" }}}
-" FUNCTION: tiler#display#GoToBlankBuffer() {{{1
-function! tiler#display#GoToBlankBuffer()
-	" Find the first unused blank buffer
-	for q in range(1, bufnr('$'))
-		if bufexists(q) && bufname(q) == '' && getbufline(q, 1, '$') == [''] && win_findbuf(q) == []
-			execute q . 'buffer!'
-			return q
-		endif
-	endfor
-
-	" If there are no avaliable blank buffers
-	enew
-	return bufnr()
 endfunction
 " }}}
